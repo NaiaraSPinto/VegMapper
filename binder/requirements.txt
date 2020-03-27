@@ -1,0 +1,6 @@
+numpy
+pandas==0.25.3
+matplotlib
+ipywidgets
+jupyter_contrib_nbextensions
+rpy2
