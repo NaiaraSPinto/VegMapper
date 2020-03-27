@@ -1,0 +1,25 @@
+ENVI
+description = {
+/Users/hknapp/Desktop/indo_stack_2018_clipped.}
+samples = 1544
+lines   = 1437
+bands   = 11
+header offset = 0
+file type = ENVI Standard
+data type = 4
+interleave = bsq
+byte order = 0
+map info = {Geographic Lat/Lon, 1, 1, 112.97998984, -1.65886376, 0.000271999999999998, 0.000272,WGS-84}
+coordinate system string = {GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]}
+band names = {
+Band 1,
+Band 2,
+Band 3,
+Band 4,
+Band 5,
+Band 6,
+Band 7,
+Band 8,
+Band 9,
+Band 10,
+Band 11}

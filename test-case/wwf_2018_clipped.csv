@@ -1,0 +1,140 @@
+SampleID,DataValue,DataLabel,ValID,Timestamp,UserID,UserName,ValValue,user_class,my_class,longitude,latitude
+376891,2,Possibly Oil Palm,193752,11/30/18,599,Khairil Fahmi Faisal,10,"dryland forest, shrub, or grass",dry_veg,113.153118,-1.944056
+376803,1,No Oil Palm,193574,11/30/18,106,Naikoa Aguilar-Amuchastegui,1,No Oil Palm,no_oil_palm,113.180862,-1.765624
+376822,1,No Oil Palm,193577,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.19147,-1.871976
+376824,1,No Oil Palm,193632,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.338078,-2.00036
+376797,1,No Oil Palm,193639,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.15339,-2.041704
+376817,1,No Oil Palm,193658,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.329374,-1.817032
+376836,1,No Oil Palm,193695,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.17515,-1.747944
+376815,1,No Oil Palm,193635,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.001886,-1.671512
+376763,1,No Oil Palm,193651,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.10987,-1.959288
+376897,2,Possibly Oil Palm,193672,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.100078,-1.857832
+376804,1,No Oil Palm,193610,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.270894,-1.775144
+376765,1,No Oil Palm,193661,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.342702,-1.862184
+376805,1,No Oil Palm,193631,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.211326,-1.920392
+376792,1,No Oil Palm,193636,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.291294,-1.676136
+376780,1,No Oil Palm,193641,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.326926,-1.67668
+376777,1,No Oil Palm,193657,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.29891,-1.85756
+376844,1,No Oil Palm,193643,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.295374,-1.997096
+376800,1,No Oil Palm,193691,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.299726,-2.004168
+376814,1,No Oil Palm,193686,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.16971,-2.016136
+376795,1,No Oil Palm,193749,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.18195,-2.041432
+376771,1,No Oil Palm,193754,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.040782,-1.69572
+376770,1,No Oil Palm,193808,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.335086,-1.667432
+376778,1,No Oil Palm,193815,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.116126,-1.704424
+376776,1,No Oil Palm,193725,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.207518,-2.013416
+376899,2,Possibly Oil Palm,193745,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.096814,-1.908152
+376845,1,No Oil Palm,193777,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.181134,-1.710408
+376828,1,No Oil Palm,193742,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.283134,-1.98132
+376796,1,No Oil Palm,193717,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.337806,-1.742504
+376758,1,No Oil Palm,193738,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.307342,-1.893192
+376834,1,No Oil Palm,193759,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.086478,-1.968536
+376843,1,No Oil Palm,193785,11/30/18,599,Khairil Fahmi Faisal,1,No Oil Palm,no_oil_palm,113.140334,-1.66852
+376761,1,No Oil Palm,192600,12/10/18,106,Naikoa Aguilar-Amuchastegui,1,No Oil Palm,no_oil_palm,113.087022,-1.673144
+376984,3,Oil Palm,193583,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.158014,-1.976696
+376995,3,Oil Palm,193585,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.121022,-1.792008
+376911,3,Oil Palm,193592,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.042686,-1.833624
+376861,2,Possibly Oil Palm,193590,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.076142,-1.896184
+377003,3,Oil Palm,193591,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.076958,-1.816488
+376908,3,Oil Palm,193602,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.121566,-1.883944
+376872,2,Possibly Oil Palm,193603,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.06907,-1.799896
+376918,3,Oil Palm,193617,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.127822,-1.884216
+376902,2,Possibly Oil Palm,193646,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.17787,-1.916856
+376934,3,Oil Palm,193647,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.041326,-1.912776
+376945,3,Oil Palm,193648,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.047854,-1.915768
+376905,3,Oil Palm,193662,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.12755,-1.836888
+376903,2,Possibly Oil Palm,193674,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.197454,-2.009064
+376946,3,Oil Palm,193676,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.112862,-1.894824
+376963,3,Oil Palm,193700,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.174062,-1.998184
+376938,3,Oil Palm,193587,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.081038,-1.846408
+376976,3,Oil Palm,193593,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.171886,-1.98268
+376856,2,Possibly Oil Palm,193589,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.05003,-1.896184
+376979,3,Oil Palm,193594,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.048126,-1.89972
+376965,3,Oil Palm,193595,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.10443,-1.830632
+376920,3,Oil Palm,193612,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.219214,-1.964456
+376957,3,Oil Palm,193613,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.089198,-1.827368
+376960,3,Oil Palm,193653,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.102798,-1.998728
+376989,3,Oil Palm,193666,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.089198,-1.885304
+376975,3,Oil Palm,193601,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.066894,-2.004984
+376961,3,Oil Palm,193598,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.106062,-1.920392
+376892,2,Possibly Oil Palm,193615,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.145774,-1.880408
+376996,3,Oil Palm,193619,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.150942,-2.002808
+376952,3,Oil Palm,193611,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.12891,-1.966088
+376973,3,Oil Palm,193618,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.130542,-1.833624
+376939,3,Oil Palm,193628,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.010046,-1.749848
+377001,3,Oil Palm,193640,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.088926,-1.799896
+376785,1,No Oil Palm,193671,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.183582,-1.806424
+377002,3,Oil Palm,193677,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.170526,-1.966632
+376937,3,Oil Palm,193681,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.102526,-1.896728
+376915,3,Oil Palm,193692,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.24723,-1.93236
+376971,3,Oil Palm,193703,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.11123,-1.979416
+376877,2,Possibly Oil Palm,193704,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.057102,-1.904072
+376888,2,Possibly Oil Palm,193621,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.173246,-1.8494
+376988,3,Oil Palm,193623,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.095726,-1.995192
+376921,3,Oil Palm,193624,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.157742,-1.991928
+376993,3,Oil Palm,193630,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.057374,-1.881768
+376985,3,Oil Palm,193650,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.162366,-2.000904
+376977,3,Oil Palm,193654,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.031806,-1.822472
+376912,3,Oil Palm,193655,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.141694,-1.826008
+376966,3,Oil Palm,193633,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.230366,-1.976696
+376922,3,Oil Palm,193673,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.119934,-1.988664
+376955,3,Oil Palm,193678,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.089742,-1.997368
+376936,3,Oil Palm,193689,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.170526,-1.915768
+376949,3,Oil Palm,193637,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.115582,-1.881496
+376935,3,Oil Palm,193663,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.140334,-1.866264
+376895,2,Possibly Oil Palm,193684,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.125102,-1.776776
+376972,3,Oil Palm,193687,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.132174,-1.982136
+376869,2,Possibly Oil Palm,193679,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.169982,-1.801256
+376948,3,Oil Palm,193680,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.150942,-1.9582
+376953,3,Oil Palm,193698,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.194734,-2.008792
+376928,3,Oil Palm,193715,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.129726,-1.833896
+376968,3,Oil Palm,193721,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.07587,-1.815944
+376959,3,Oil Palm,193739,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.082398,-1.846952
+376997,3,Oil Palm,193770,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.181678,-2.022664
+376910,3,Oil Palm,193788,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.117214,-1.779496
+376941,3,Oil Palm,193812,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.17107,-1.9718
+376916,3,Oil Palm,193713,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.129998,-1.878232
+377000,3,Oil Palm,193735,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.147134,-2.008792
+376931,3,Oil Palm,193748,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.073422,-2.007704
+376994,3,Oil Palm,193756,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.16699,-1.973704
+376964,3,Oil Palm,193758,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.11803,-1.9174
+376978,3,Oil Palm,193773,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.132174,-1.810504
+376981,3,Oil Palm,193781,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.098718,-1.976696
+376927,3,Oil Palm,193711,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.10987,-1.900264
+376930,3,Oil Palm,193726,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.178958,-1.970984
+376992,3,Oil Palm,193741,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.085118,-1.830632
+376980,3,Oil Palm,193743,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.053838,-1.87932
+376950,3,Oil Palm,193712,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.109054,-1.79908
+376896,2,Possibly Oil Palm,193724,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.11939,-1.791736
+376913,3,Oil Palm,193727,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.065534,-1.913864
+376940,3,Oil Palm,193723,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.108782,-1.784664
+376924,3,Oil Palm,193761,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.01467,-1.73924
+376865,2,Possibly Oil Palm,193805,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.058462,-1.840696
+376914,3,Oil Palm,193751,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.135166,-1.885304
+376942,3,Oil Palm,193766,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.043774,-1.916584
+376990,3,Oil Palm,193775,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.198814,-2.015864
+376951,3,Oil Palm,193793,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.128094,-1.80996
+376991,3,Oil Palm,193780,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.226286,-1.981592
+376999,3,Oil Palm,193789,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.198542,-1.92828
+376986,3,Oil Palm,193797,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.055742,-1.9378
+376943,3,Oil Palm,193799,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.036974,-1.81404
+376974,3,Oil Palm,193802,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.12619,-1.898632
+376917,3,Oil Palm,193804,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.035342,-1.802344
+376956,3,Oil Palm,193814,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.128638,-1.877688
+376871,2,Possibly Oil Palm,193818,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.085118,-1.785752
+376898,2,Possibly Oil Palm,193820,11/30/18,599,Khairil Fahmi Faisal,3,Oil Palm,oil_palm,113.071518,-1.885848
+376862,2,Possibly Oil Palm,193652,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.051934,-1.935896
+376894,2,Possibly Oil Palm,193665,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.231998,-1.978328
+376886,2,Possibly Oil Palm,193600,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.080222,-1.888296
+376875,2,Possibly Oil Palm,193702,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.02555,-1.757464
+376874,2,Possibly Oil Palm,193634,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.120206,-1.965544
+376887,2,Possibly Oil Palm,193790,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.180046,-1.978872
+376863,2,Possibly Oil Palm,193801,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.13843,-1.936712
+376859,2,Possibly Oil Palm,193747,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.249678,-2.00308
+376864,2,Possibly Oil Palm,193728,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.139246,-1.859464
+376873,2,Possibly Oil Palm,193760,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.088382,-1.976696
+376870,2,Possibly Oil Palm,193771,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.241246,-1.930184
+376855,2,Possibly Oil Palm,193778,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.117486,-1.84804
+376883,2,Possibly Oil Palm,193803,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.10443,-1.820024
+376857,2,Possibly Oil Palm,193807,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.159646,-1.891832
+376867,2,Possibly Oil Palm,193809,11/30/18,599,Khairil Fahmi Faisal,2,Possibly Oil Palm,NA,113.24587,-1.927464
