@@ -1,0 +1,12 @@
+name: jpl
+dependencies:
+  - python=3.8
+  - dask
+  - pip
+  - pip:
+    - pandas
+    - rasterio
+    - certifi
+    - asf_hyp3
+    - requests
+    - boto3
