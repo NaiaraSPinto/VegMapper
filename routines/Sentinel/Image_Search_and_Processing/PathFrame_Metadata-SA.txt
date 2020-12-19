@@ -1,0 +1,18 @@
+PathFrame: 25 621
+PathFrame: 25 623
+PathFrame: 25 624
+PathFrame: 25 626
+PathFrame: 25 628
+PathFrame: 25 631
+PathFrame: 98 616
+PathFrame: 98 617
+PathFrame: 98 621
+PathFrame: 98 622
+PathFrame: 98 627
+PathFrame: 171 616
+PathFrame: 171 618
+PathFrame: 171 623
+PathFrame: 171 624
+
+start: 2014-04-03T00:00:00UTC
+end: 2016-04-28T00:00:00UTC
