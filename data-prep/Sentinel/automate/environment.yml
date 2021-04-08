@@ -1,0 +1,13 @@
+name: sentinel-automate
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - gdal
+  - hyp3_sdk
+  - numpy
+  - pandas
+  - pip
+
+  - pip:
+    - boto3
