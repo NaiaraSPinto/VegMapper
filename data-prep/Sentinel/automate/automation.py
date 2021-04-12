@@ -35,14 +35,14 @@ def main():
     hyp3 = HyP3(username=config['HyP3']['username'], password=config['HyP3']['password'])
     s3 = boto3.resource('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
-    granules_group_dict, start_date = submit_granules(hyp3, config['csv']['csv'])
+    granules_group_dict = submit_granules(hyp3, config['csv']['csv'])
     
     # use threading to prevent entire script crashing if one operation throws an error
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         futures = []
         for year_path_frame, granule_name_list in granules_group_dict.items():
             year, path_frame = year_path_frame.split('_', 1)
-            futures.append(executor.submit(thread_function, hyp3, s3, dest_bucket, prefix_str, year, path_frame, start_date))
+            futures.append(executor.submit(thread_function, hyp3, s3, dest_bucket, prefix_str, year, path_frame))
 
         for fut in futures:
             print(fut.result())
@@ -50,17 +50,17 @@ def main():
 
     print("done with everything")
 
-def thread_function(hyp3, s3, dest_bucket, prefix_str, year, path_frame, start_date):
+def thread_function(hyp3, s3, dest_bucket, prefix_str, year, path_frame):
     print(year, path_frame, "copying jobs to bucket")
-    copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame, start_date)
+    copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame)
     print(year, path_frame, "DONE copying jobs to bucket")
 
     print(year, path_frame, "building vrt and uploading to s3")
-    VV_VRT_filename, VH_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame)
+    # VV_VRT_filename, VH_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame)
     print(year, path_frame, "DONE building vrt and uploading to s3")
 
     print(year, path_frame, "calc temp avg and uploading to s3")
-    calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, VV_VRT_filename, VH_VRT_filename)
+    # calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, VV_VRT_filename, VH_VRT_filename)
     print(year, path_frame, "DONE calc temp avg and uploading to s3")
 
 """
@@ -81,9 +81,7 @@ def submit_granules(hyp3, csv_path):
         key : granules_groups.get_group(x).to_list()
         for key,x in zip(granules_groups.indices,granules_groups.groups)
     }
-
-    # TODO: Make start date today's date
-    start_date = datetime.datetime(2021,4,8) # the date the jobs were submitted
+    
     # submit the jobs for all year_path_frame's
     for year_path_frame,granule_name_list in granules_group_dict.items():
         for granule_name in granule_name_list:
@@ -91,12 +89,12 @@ def submit_granules(hyp3, csv_path):
                                     scale='power', speckle_filter=False, dem_matching=True,
                                     include_dem=True, include_inc_map=True, include_scattering_area=True)
 
-    return granules_group_dict, start_date
+    return granules_group_dict 
 
-def copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame, start_date):
+def copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame):
     year_path_frame = "_".join([year, path_frame])
 
-    batch = hyp3.find_jobs(name=year_path_frame, start=start_date) # only get jobs after today's date
+    batch = hyp3.find_jobs(name=year_path_frame) # only get jobs after today's date
     batch = hyp3.watch(batch)
     
     for job in batch.jobs:
