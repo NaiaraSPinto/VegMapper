@@ -2,7 +2,7 @@ from hyp3_sdk import HyP3
 from osgeo import gdal
 from configparser import ConfigParser
 import pandas as pd
-import datetime
+from datetime import datetime,timezone
 
 import boto3
 from botocore.exceptions import ClientError
@@ -26,25 +26,34 @@ def main():
     config = ConfigParser()
     config.read(config_file)
     
+    hyp3_username = config['HyP3']['username']
+    hyp3_password = config['HyP3']['password']
+
     aws_access_key_id = config['aws']['aws_access_key_id']
     aws_secret_access_key = config['aws']['aws_secret_access_key']
-    prefix_str = config['aws']['prefix_str']
     dest_bucket = config['aws']['dest_bucket']
+    prefix_str = config['aws']['prefix_str']
+
+    submit_granules = config['switches']['submit_granules']
+    copy_processed_granules_to_bucket = config['switches']['copy_processed_granules_to_bucket']
+    calculate_temporal_average = config['switches']['calculate_temporal_average']
+    
     max_threads = int(config['misc']['max_threads'])
     
-    hyp3 = HyP3(username=config['HyP3']['username'], password=config['HyP3']['password'])
+    hyp3 = HyP3(username=hyp3_username, password=hyp3_password)
     s3 = boto3.resource('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
     granules_group_dict = generate_granules_group_dict(config['csv']['csv'])
     
-    submit_granules(hyp3, granules_group_dict)
+    if submit_granules.lower() == "t" or submit_granules.lower() == "true":
+        submit_granules(hyp3, granules_group_dict)
     
     # use threading to prevent entire script crashing if one operation throws an error
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         futures = []
         for year_path_frame in granules_group_dict.items():
             year, path_frame = year_path_frame.split('_', 1)
-            futures.append(executor.submit(thread_function, hyp3, s3, dest_bucket, prefix_str, year, path_frame))
+            futures.append(executor.submit(thread_function, hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_processed_granules_to_bucket, calculate_temporal_average))
 
         for fut in futures:
             print(fut.result())
@@ -52,18 +61,20 @@ def main():
 
     print("done with everything")
 
-def thread_function(hyp3, s3, dest_bucket, prefix_str, year, path_frame):
-    print(year, path_frame, "copying jobs to bucket")
-    copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame)
-    print(year, path_frame, "DONE copying jobs to bucket")
+def thread_function(hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_processed_granules_to_bucket, calculate_temporal_average):
+    if copy_processed_granules_to_bucket.lower() == "t" or copy_processed_granules_to_bucket.lower() == "true":
+        print(year, path_frame, "copying jobs to bucket")
+        copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame)
+        print(year, path_frame, "DONE copying jobs to bucket")
 
-    print(year, path_frame, "building vrt and uploading to s3")
-    # VV_VRT_filename, VH_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame)
-    print(year, path_frame, "DONE building vrt and uploading to s3")
+    if calculate_temporal_average.lower() == "t" or calculate_temporal_average.lower() == "true":
+        print(year, path_frame, "building vrt and uploading to s3")
+        VV_VRT_filename, VH_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame)
+        print(year, path_frame, "DONE building vrt and uploading to s3")
 
-    print(year, path_frame, "calc temp avg and uploading to s3")
-    # calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, VV_VRT_filename, VH_VRT_filename)
-    print(year, path_frame, "DONE calc temp avg and uploading to s3")
+        print(year, path_frame, "calc temp avg and uploading to s3")
+        calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, VV_VRT_filename, VH_VRT_filename)
+        print(year, path_frame, "DONE calc temp avg and uploading to s3")
 
 """
 Returns the granules dictionary
@@ -110,7 +121,13 @@ def copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame)
         }
         filename = ntpath.basename(job.files[0]['s3']['key'])
         destination_key = os.path.join(prefix_str, '{}/{}/{}'.format(year, path_frame, filename))
-        s3.meta.client.copy(copy_source, Bucket=dest_bucket, Key=destination_key) 
+        expiration_time = job.expiration_time
+        today = datetime.now(timezone.utc)
+        if not today > expiration_time: # TODO: Today's date in utc
+            s3.meta.client.copy(copy_source, Bucket=dest_bucket, Key=destination_key) 
+        else:
+            # job is expired and cannot be copied
+            pass
 
 def build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame):
 
