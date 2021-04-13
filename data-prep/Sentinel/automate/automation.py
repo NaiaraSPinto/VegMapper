@@ -8,6 +8,8 @@ import boto3
 from botocore.exceptions import ClientError
 
 import os
+import sys
+import logging
 import concurrent.futures
 import ntpath
 import time
@@ -22,7 +24,12 @@ import numpy as np
 # TODO: Use global variables for things like s3, bucket_name?
 
 def main():
-    config_file = 'config.ini'
+    logging.basicConfig(filename='error.log', encoding='utf-8', level=logging.DEBUG)
+    if len(sys.argv) != 2:
+        print("error: missing config file or too many arguments")
+        print("USAGE: python automation.py <config file>")
+    else:
+        config_file = sys.argv[1]
     config = ConfigParser()
     config.read(config_file)
     
@@ -34,7 +41,7 @@ def main():
     dest_bucket = config['aws']['dest_bucket']
     prefix_str = config['aws']['prefix_str']
 
-    submit_granules = config['switches']['submit_granules']
+    submit_granules_switch = config['switches']['submit_granules']
     copy_processed_granules_to_bucket = config['switches']['copy_processed_granules_to_bucket']
     calculate_temporal_average = config['switches']['calculate_temporal_average']
     
@@ -45,13 +52,13 @@ def main():
 
     granules_group_dict = generate_granules_group_dict(config['csv']['csv'])
     
-    if submit_granules.lower() == "t" or submit_granules.lower() == "true":
+    if submit_granules_switch.lower() == "t" or submit_granules_switch.lower() == "true":
         submit_granules(hyp3, granules_group_dict)
     
     # use threading to prevent entire script crashing if one operation throws an error
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         futures = []
-        for year_path_frame in granules_group_dict.items():
+        for year_path_frame in granules_group_dict.keys():
             year, path_frame = year_path_frame.split('_', 1)
             futures.append(executor.submit(thread_function, hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_processed_granules_to_bucket, calculate_temporal_average))
 
@@ -101,6 +108,13 @@ def generate_granules_group_dict(csv_path):
 Submits the granules to Hyp3.  
 """
 def submit_granules(hyp3, granules_group_dict):
+    print("You will be submitting the following granules for processing:")
+    for year_path_frame,granule_name_list in granules_group_dict.items():
+        print("{} - {} granules".format(year_path_frame, len(granule_name_list)))
+    user_input = input("Enter 'Y' to confirm you would like to submit these granules: ")
+    if user_input.lower() != "y":
+        sys.exit()
+
     # submit the jobs for all year_path_frame's
     for year_path_frame,granule_name_list in granules_group_dict.items():
         for granule_name in granule_name_list:
@@ -108,10 +122,12 @@ def submit_granules(hyp3, granules_group_dict):
                                     scale='power', speckle_filter=False, dem_matching=True,
                                     include_dem=True, include_inc_map=True, include_scattering_area=True)
 
+    print("Jobs successfully submitted.")
+
 def copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame):
     year_path_frame = "_".join([year, path_frame])
 
-    batch = hyp3.find_jobs(name=year_path_frame) # only get jobs after today's date
+    batch = hyp3.find_jobs(name=year_path_frame) 
     batch = hyp3.watch(batch)
     
     for job in batch.jobs:
@@ -124,7 +140,11 @@ def copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame)
         expiration_time = job.expiration_time
         today = datetime.now(timezone.utc)
         if not today > expiration_time: # TODO: Today's date in utc
-            s3.meta.client.copy(copy_source, Bucket=dest_bucket, Key=destination_key) 
+            try:
+                s3.meta.client.copy(copy_source, Bucket=dest_bucket, Key=destination_key) 
+            except:
+                logging.error("Error copying from {} to {}/{}".format(copy_source,dest_bucket,destination_key))
+                
         else:
             # job is expired and cannot be copied
             pass

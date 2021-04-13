@@ -2,7 +2,9 @@ This folder contains code to automate the processing of sentinel granules using 
 
 Create a conda virtual environment with environment.yml to install the dependencies the script needs to run. 
 
-[automation.py](automation.py) should be run in the same directory as a config.ini file, which should be structured as such:
+Run using ``` python automation.py <config file> ```.
+
+```<config file>``` should be a .ini file structured like so:
 
 ```
 [HyP3]
@@ -20,5 +22,10 @@ csv = <csv>
 
 [misc]
 max_threads = 4
+
+[switches]
+submit_granules = true
+copy_processed_granules_to_bucket = true
+calculate_temporal_average = true
 
 ```
