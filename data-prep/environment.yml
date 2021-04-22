@@ -3,16 +3,14 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.8
+  - python=3.9
   - pip
+  - requests
+  - boto3
   - gdal
+  - rasterio
   - hyp3_sdk
   - numpy
   - pandas
-  - dask
-  - pip:
-    - rasterio
-    - certifi
-    - asf_hyp3
-    - requests
-    - boto3
+  - vim
+  - tmux
