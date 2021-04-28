@@ -14,3 +14,4 @@ dependencies:
   - pandas
   - vim
   - tmux
+  - git
