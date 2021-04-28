@@ -32,7 +32,7 @@ def main():
         config_file = sys.argv[1]
     config = ConfigParser()
     config.read(config_file)
-    
+
     hyp3_username = config['HyP3']['username']
     hyp3_password = config['HyP3']['password']
 
@@ -44,17 +44,18 @@ def main():
     submit_granules_switch = config['switches']['submit_granules']
     copy_processed_granules_to_bucket = config['switches']['copy_processed_granules_to_bucket']
     calculate_temporal_average = config['switches']['calculate_temporal_average']
-    
+    dry_season_only = config['switches']['dry_season_only']
+
     max_threads = int(config['misc']['max_threads'])
-    
+
     hyp3 = HyP3(username=hyp3_username, password=hyp3_password)
     s3 = boto3.resource('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
     granules_group_dict = generate_granules_group_dict(config['csv']['csv'])
-    
+
     if submit_granules_switch.lower() == "t" or submit_granules_switch.lower() == "true":
         submit_granules(hyp3, granules_group_dict)
-    
+
     # use threading to prevent entire script crashing if one operation throws an error
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         futures = []
@@ -68,7 +69,7 @@ def main():
 
     print("done with everything")
 
-def thread_function(hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_processed_granules_to_bucket, calculate_temporal_average):
+def thread_function(hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_processed_granules_to_bucket, calculate_temporal_average, dry_season_only):
     if copy_processed_granules_to_bucket.lower() == "t" or copy_processed_granules_to_bucket.lower() == "true":
         print(year, path_frame, "copying jobs to bucket")
         copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame)
@@ -76,7 +77,7 @@ def thread_function(hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_pr
 
     if calculate_temporal_average.lower() == "t" or calculate_temporal_average.lower() == "true":
         print(year, path_frame, "building vrt and uploading to s3")
-        VV_VRT_filename, VH_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame)
+        VV_VRT_filename, VH_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, dry_season_only)
         print(year, path_frame, "DONE building vrt and uploading to s3")
 
         print(year, path_frame, "calc temp avg and uploading to s3")
@@ -105,7 +106,7 @@ def generate_granules_group_dict(csv_path):
     return granules_group_dict
 
 """
-Submits the granules to Hyp3.  
+Submits the granules to Hyp3.
 """
 def submit_granules(hyp3, granules_group_dict):
     print("You will be submitting the following granules for processing:")
@@ -127,9 +128,9 @@ def submit_granules(hyp3, granules_group_dict):
 def copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame):
     year_path_frame = "_".join([year, path_frame])
 
-    batch = hyp3.find_jobs(name=year_path_frame) 
+    batch = hyp3.find_jobs(name=year_path_frame)
     batch = hyp3.watch(batch)
-    
+
     for job in batch.jobs:
         copy_source = {
             'Bucket':job.files[0]['s3']['bucket'],
@@ -141,17 +142,17 @@ def copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame)
         today = datetime.now(timezone.utc)
         if not today > expiration_time: # TODO: Today's date in utc
             try:
-                s3.meta.client.copy(copy_source, Bucket=dest_bucket, Key=destination_key) 
+                s3.meta.client.copy(copy_source, Bucket=dest_bucket, Key=destination_key)
             except:
                 logging.error("Error copying from {} to {}/{}".format(copy_source,dest_bucket,destination_key))
-                
+
         else:
             # job is expired and cannot be copied
             pass
 
-def build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame):
+def build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, dry_season_only):
 
-    VV_VRT_filename, VH_VRT_filename = build_vrt(s3, dest_bucket, prefix_str, year, path_frame)
+    VV_VRT_filename, VH_VRT_filename = build_vrt(s3, dest_bucket, prefix_str, year, path_frame, dry_season_only)
 
     VV_VRT_s3_key = os.path.join(prefix_str, year, path_frame, VV_VRT_filename)
     VH_VRT_s3_key = os.path.join(prefix_str, year, path_frame, VH_VRT_filename)
@@ -161,18 +162,24 @@ def build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame):
 
     return VV_VRT_filename, VH_VRT_filename
 
-def build_vrt(s3, bucket_str, prefix_str, year, path_frame):
+def build_vrt(s3, bucket_str, prefix_str, year, path_frame, dry_season_only):
     # if the bucket has more files that we don't care about, use this to filter only files that start with the given prefix string
     bucket_object = s3.Bucket(bucket_str)
 
     VV_list = []
     VH_list = []
-    
+
     folder = os.path.join(prefix_str, year, path_frame)
     for file in bucket_object.objects.filter(Prefix=folder):
         if file.key.endswith('.zip'):
-            VV_list.append(generate_tif_full_filename(bucket_str, file.key, "VV"))
-            VH_list.append(generate_tif_full_filename(bucket_str, file.key, "VH"))
+            acquisition_time = datetime.strptime(file.key.split('_')[2], '%Y%m%dT%H%M%S')
+            if dry_season_only:
+                if (acquisition_time.month >= 5) & (acquisition_time.month <= 9):
+                    VV_list.append(generate_tif_full_filename(bucket_str, file.key, "VV"))
+                    VH_list.append(generate_tif_full_filename(bucket_str, file.key, "VH"))
+            else:
+                VV_list.append(generate_tif_full_filename(bucket_str, file.key, "VV"))
+                VH_list.append(generate_tif_full_filename(bucket_str, file.key, "VH"))
 
     # TODO: any other kwargs we're missing? targetAlignedPixels?
     VV_VRT_filename = "{}_{}_VV.vrt".format(year, path_frame)
@@ -180,7 +187,7 @@ def build_vrt(s3, bucket_str, prefix_str, year, path_frame):
 
     VH_VRT_filename = "{}_{}_VH.vrt".format(year, path_frame)
     gdal_build_vrt(VH_VRT_filename, VH_list)
-    
+
     # prevent race condition where we attempt to upload the files to s3 before gdal creates the vrt
     block_until_file_created(VV_VRT_filename)
     block_until_file_created(VH_VRT_filename)
@@ -195,7 +202,7 @@ VRT with in a format that GDAL understands.
 Polarization should either be "VV" or "VH"
 """
 def generate_tif_full_filename(bucket, filename, polarization):
-    # TODO: Make this a parameter. 
+    # TODO: Make this a parameter.
     # Hardcoded variable controls whether we are building links for S3 or local filesystem
     cloud = True
     local_path = "/data3/lepopal_vault/datasets/2018_data"
@@ -222,12 +229,12 @@ def generate_tif_full_filename(bucket, filename, polarization):
         # return ("/vsizip/vsis3/" + bucket + "/" + folder + granule_name + ".zip/" + granule_name
         #         + "/" + granule_name + "_" + polarization + ".tif")
         return os.path.join(
-            "/vsizip/vsis3/", bucket, folder, granule_name + ".zip/", granule_name, 
+            "/vsizip/vsis3/", bucket, folder, granule_name + ".zip/", granule_name,
             granule_name + "_" + polarization + ".tif"
         )
     else:
         return os.path.join(
-            "/vsizip/" + local_path, granule_name + ".zip/", granule_name, 
+            "/vsizip/" + local_path, granule_name + ".zip/", granule_name,
             granule_name + "_" + polarization + ".tif"
         )
 
@@ -265,20 +272,20 @@ def average(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_ysize,
     with open(filename, 'w') as f:
         f.writelines(lines)
 
-""" 
+"""
 Blocks the thread until we can confirm that filename exists.
 Used to prevent a race condition in build_vrt.
 """
 def block_until_file_created(filename, max_attempts=3):
     attempts = 0
-    
+
     while attempts < max_attempts:
         if os.path.isfile(filename):
             # exit the function
             return None
         attempts += 1
         time.sleep(5)
-        
+
     # if we exceed max_attempts and file still not found
     # TODO: Raise FileNotFound Error
     raise RuntimeError("{} not found".format(filename))
