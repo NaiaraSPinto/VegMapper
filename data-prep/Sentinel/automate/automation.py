@@ -172,7 +172,7 @@ def build_vrt(s3, bucket_str, prefix_str, year, path_frame, dry_season_only):
     folder = os.path.join(prefix_str, year, path_frame)
     for file in bucket_object.objects.filter(Prefix=folder):
         if file.key.endswith('.zip'):
-            acquisition_time = datetime.strptime(file.key.split('_')[2], '%Y%m%dT%H%M%S')
+            acquisition_time = datetime.strptime(file.key.split('_')[-6], '%Y%m%dT%H%M%S')
             if dry_season_only:
                 if (acquisition_time.month >= 5) & (acquisition_time.month <= 9):
                     VV_list.append(generate_tif_full_filename(bucket_str, file.key, "VV"))
