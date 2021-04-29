@@ -20,6 +20,7 @@ import re
 from copy import copy
 from pathlib import Path
 import numpy as np
+import rasterio
 
 # TODO: Use global variables for things like s3, bucket_name?
 
@@ -152,15 +153,17 @@ def copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame)
 
 def build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, dry_season_only):
 
-    VV_VRT_filename, VH_VRT_filename = build_vrt(s3, dest_bucket, prefix_str, year, path_frame, dry_season_only)
+    VV_VRT_filename, VH_VRT_filename, INC_VRT_filename = build_vrt(s3, dest_bucket, prefix_str, year, path_frame, dry_season_only)
 
     VV_VRT_s3_key = os.path.join(prefix_str, year, path_frame, VV_VRT_filename)
     VH_VRT_s3_key = os.path.join(prefix_str, year, path_frame, VH_VRT_filename)
+    INC_VRT_s3_key = os.path.join(prefix_str, year, path_frame, INC_VRT_filename)
 
     upload_to_s3(s3, VV_VRT_filename, dest_bucket, VV_VRT_s3_key)
     upload_to_s3(s3, VH_VRT_filename, dest_bucket, VH_VRT_s3_key)
+    upload_to_s3(s3, INC_VRT_filename, dest_bucket, INC_VRT_s3_key)
 
-    return VV_VRT_filename, VH_VRT_filename
+    return VV_VRT_filename, VH_VRT_filename, INC_VRT_filename
 
 def build_vrt(s3, bucket_str, prefix_str, year, path_frame, dry_season_only):
     # if the bucket has more files that we don't care about, use this to filter only files that start with the given prefix string
@@ -168,6 +171,7 @@ def build_vrt(s3, bucket_str, prefix_str, year, path_frame, dry_season_only):
 
     VV_list = []
     VH_list = []
+    INC_list = []
 
     folder = os.path.join(prefix_str, year, path_frame)
     for file in bucket_object.objects.filter(Prefix=folder):
@@ -177,9 +181,11 @@ def build_vrt(s3, bucket_str, prefix_str, year, path_frame, dry_season_only):
                 if (acquisition_time.month >= 5) & (acquisition_time.month <= 9):
                     VV_list.append(generate_tif_full_filename(bucket_str, file.key, "VV"))
                     VH_list.append(generate_tif_full_filename(bucket_str, file.key, "VH"))
+                    INC_list.append(generate_tif_full_filename(bucket_str, file.key, "inc_map"))
             else:
                 VV_list.append(generate_tif_full_filename(bucket_str, file.key, "VV"))
                 VH_list.append(generate_tif_full_filename(bucket_str, file.key, "VH"))
+                INC_list.append(generate_tif_full_filename(bucket_str, file.key, "inc_map"))
 
     # TODO: any other kwargs we're missing? targetAlignedPixels?
     VV_VRT_filename = "{}_{}_VV.vrt".format(year, path_frame)
@@ -188,12 +194,16 @@ def build_vrt(s3, bucket_str, prefix_str, year, path_frame, dry_season_only):
     VH_VRT_filename = "{}_{}_VH.vrt".format(year, path_frame)
     gdal_build_vrt(VH_VRT_filename, VH_list)
 
+    INC_VRT_filename = "{}_{}_INC.vrt".format(year, path_frame)
+    gdal_build_vrt(INC_VRT_filename, INC_list)
+
     # prevent race condition where we attempt to upload the files to s3 before gdal creates the vrt
     block_until_file_created(VV_VRT_filename)
     block_until_file_created(VH_VRT_filename)
+    block_until_file_created(INC_VRT_filename)
 
     # returns the keys to the VV and VRT files in S3
-    return VV_VRT_filename, VH_VRT_filename
+    return VV_VRT_filename, VH_VRT_filename, INC_VRT_filename
 
 """
 Given the name of a .zip file in an AWS bucket, generates the full filename
@@ -290,7 +300,7 @@ def block_until_file_created(filename, max_attempts=3):
     # TODO: Raise FileNotFound Error
     raise RuntimeError("{} not found".format(filename))
 
-def calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, VV_VRT_filename, VH_VRT_filename):
+def calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, VV_VRT_filename, VH_VRT_filename, INC_VRT_filename):
     print("VV...", end=None)
     vv_tif_filename = calc_temp_avg(VV_VRT_filename)
     vv_tif_s3_key = os.path.join(prefix_str, year, path_frame, vv_tif_filename)
@@ -303,13 +313,23 @@ def calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame
     upload_to_s3(s3, vh_tif_filename, dest_bucket, vh_tif_s3_key)
     print("DONE")
 
+    print("INC...", end=None)
+    inc_tif_filename = calc_temp_avg(INC_VRT_filename)
+    with rasterio.open(inc_tif_filename, 'r+') as dset:
+        dset.write(np.rad2deg(dset.read(1)), 1)
+    inc_tif_s3_key = os.path.join(prefix_str, year, path_frame, inc_tif_filename)
+    upload_to_s3(s3, inc_tif_filename, dest_bucket, inc_tif_s3_key)
+    print("DONE")
+
     # after uploading VRTs and averaging, delete them from local filesystem
     os.remove(VV_VRT_filename)
     os.remove(VH_VRT_filename)
+    os.remove(INC_VRT_filename)
 
     # after uploading .tifs, delete them from local filesystem
     os.remove(vv_tif_filename)
     os.remove(vh_tif_filename)
+    os.remove(inc_tif_filename)
 
 def calc_temp_avg(vrt_filename):
     tif_filename = os.path.splitext(ntpath.basename(vrt_filename))[0] + ".tif"
