@@ -45,7 +45,7 @@ def main():
     submit_granules_switch = config['switches']['submit_granules']
     copy_processed_granules_to_bucket = config['switches']['copy_processed_granules_to_bucket']
     calculate_temporal_average = config['switches']['calculate_temporal_average']
-    dry_season_only = config['switches']['dry_season_only']
+    dry_season_only = config['switches']['dry_season_only'] in ['true', 'True', 't', 'T']
 
     max_threads = int(config['misc']['max_threads'])
 
@@ -62,7 +62,7 @@ def main():
         futures = []
         for year_path_frame in granules_group_dict.keys():
             year, path_frame = year_path_frame.split('_', 1)
-            futures.append(executor.submit(thread_function, hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_processed_granules_to_bucket, calculate_temporal_average))
+            futures.append(executor.submit(thread_function, hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_processed_granules_to_bucket, calculate_temporal_average, dry_season_only))
 
         for fut in futures:
             print(fut.result())
@@ -78,11 +78,11 @@ def thread_function(hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_pr
 
     if calculate_temporal_average.lower() == "t" or calculate_temporal_average.lower() == "true":
         print(year, path_frame, "building vrt and uploading to s3")
-        VV_VRT_filename, VH_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, dry_season_only)
+        VV_VRT_filename, VH_VRT_filename, INC_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, dry_season_only)
         print(year, path_frame, "DONE building vrt and uploading to s3")
 
         print(year, path_frame, "calc temp avg and uploading to s3")
-        calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, VV_VRT_filename, VH_VRT_filename)
+        calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, VV_VRT_filename, VH_VRT_filename, INC_VRT_filename)
         print(year, path_frame, "DONE calc temp avg and uploading to s3")
 
 """
