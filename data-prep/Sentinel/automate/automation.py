@@ -50,7 +50,7 @@ def main():
     max_threads = int(config['misc']['max_threads'])
 
     hyp3 = HyP3(username=hyp3_username, password=hyp3_password)
-    s3 = boto3.resource('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+    s3 = boto3.resource('s3')
 
     granules_group_dict = generate_granules_group_dict(config['csv']['csv'])
 
