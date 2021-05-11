@@ -9,7 +9,6 @@ from botocore.exceptions import ClientError
 
 import os
 import sys
-import logging
 import concurrent.futures
 import ntpath
 import time
@@ -25,7 +24,6 @@ import rasterio
 # TODO: Use global variables for things like s3, bucket_name?
 
 def main():
-    logging.basicConfig(filename='error.log', encoding='utf-8', level=logging.DEBUG)
     if len(sys.argv) != 2:
         print("error: missing config file or too many arguments")
         print("USAGE: python automation.py <config file>")
@@ -37,8 +35,6 @@ def main():
     hyp3_username = config['HyP3']['username']
     hyp3_password = config['HyP3']['password']
 
-    aws_access_key_id = config['aws']['aws_access_key_id']
-    aws_secret_access_key = config['aws']['aws_secret_access_key']
     dest_bucket = config['aws']['dest_bucket']
     prefix_str = config['aws']['prefix_str']
 
@@ -50,7 +46,7 @@ def main():
     max_threads = int(config['misc']['max_threads'])
 
     hyp3 = HyP3(username=hyp3_username, password=hyp3_password)
-    s3 = boto3.resource('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+    s3 = boto3.resource('s3')
 
     granules_group_dict = generate_granules_group_dict(config['csv']['csv'])
 
@@ -145,7 +141,7 @@ def copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame)
             try:
                 s3.meta.client.copy(copy_source, Bucket=dest_bucket, Key=destination_key)
             except:
-                logging.error("Error copying from {} to {}/{}".format(copy_source,dest_bucket,destination_key))
+                print("Error copying from {} to {}/{}".format(copy_source,dest_bucket,destination_key))
 
         else:
             # job is expired and cannot be copied
