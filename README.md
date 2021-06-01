@@ -64,3 +64,9 @@ python gee_export_modis.py state year
 ```
 
 After all processed tiles are loaded to your Google Drive, download them locally and upload to S3 bucket.
+
+## Build VRTs and push stack geotiff to servir-stacks ##
+```
+(data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ cd ../Stacks
+(data-prep) [username@ip-xxx-xxx-xxx-xxx Stacks]$ python build_stacks.py country state year
+```
