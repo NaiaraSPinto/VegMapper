@@ -53,6 +53,18 @@ Supported **(country, state)** are (peru, ucayali) and (brazil, para) now.
 ## Landsat NDVI & MODIS TC (GEE) ##
 These don't need to be run on EC2, but they require using a Google Earth Engine account and enough Google Drive space.
 
+To set up GEE Python API:
+```
+python
+>>> import ee
+>>> ee.Authenticate()
+```
+This will bring up a browser window and just follow the steps to complete the authentication for your Google account.
+After authentication, 
+```
+>>> ee.Initialize()
+```
+
 For Landsat:
 ```
 python gee_export_landsat.py state year
