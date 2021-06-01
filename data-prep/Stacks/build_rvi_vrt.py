@@ -44,7 +44,7 @@ s3 = boto3.client('s3')
 bucket = 'servir-stacks'
 prefix = f'{state}/{year}'
 
-gdf = gpd.read_file(f'{state}_tiles.geojson')
+gdf = gpd.read_file(f'../AOI/{state}/{state}_tiles.geojson')
 
 for i in gdf.index:
     h = gdf['h'][i]
