@@ -56,6 +56,7 @@ These don't need to be run on EC2, but they require using a Google Earth Engine 
 For Landsat:
 ```
 python gee_export_landsat.py state year
+```
 
 For MODIS:
 ```
