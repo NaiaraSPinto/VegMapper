@@ -82,3 +82,9 @@ After all processed tiles are loaded to your Google Drive, download them locally
 (data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ cd ../Stacks
 (data-prep) [username@ip-xxx-xxx-xxx-xxx Stacks]$ python build_stacks.py country state year
 ```
+
+## Build RVI VRTs and generate condensed stacks ##
+```
+(data-prep) [username@ip-xxx-xxx-xxx-xxx Stacks]$ python build_rvi_vrt.py country state year
+(data-prep) [username@ip-xxx-xxx-xxx-xxx Stacks]$ python build_condensed_stacks.py country state year
+```
