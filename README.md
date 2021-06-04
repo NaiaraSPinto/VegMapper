@@ -46,7 +46,9 @@ Supported **(country, state)** are (peru, ucayali) and (brazil, para) now.
 ```
 (data-prep) [username@ip-xxx-xxx-xxx-xxx Sentinel]$ cd ../ALOS-2
 (data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ python download_alos2_mosaic.py country state year
-(data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ python filter_alos2_mosaic.py country state year
+(data-prep) [username@ip-xxx-xxx-xxx-xxx Sentinel]$ conda activate treepeople
+(treepeople) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ python filter_alos2_mosaic.py country state year
+(treepeople) [username@ip-xxx-xxx-xxx-xxx Sentinel]$ conda activate data-prep
 (data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ python proc_alos2_tiles.py country state year
 ```
 
