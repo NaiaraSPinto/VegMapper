@@ -38,6 +38,11 @@ else:
     postfix = 'F02DAR'
     launch_date = date(2014, 5, 24)
 
+if year < 2019:
+    suffix = ''
+else:
+    suffix = '.tif'
+
 yy = str(year)[2:]
 
 # HH & HV
@@ -56,7 +61,7 @@ vrt = f'INC.vrt'
 inc_list = []
 for tile in gdf.tile:
     tarfile = f'{tile}_{yy}_MOS_{postfix}.tar.gz'
-    inc_tif = f'/vsitar/vsis3/{bucket}/{prefix}/tarfiles/{tarfile}/{tile}_{yy}_linci_{postfix}.tif'
+    inc_tif = f'/vsitar/vsis3/{bucket}/{prefix}/tarfiles/{tarfile}/{tile}_{yy}_linci_{postfix}{suffix}'
     inc_list.append(inc_tif)
 cmd = (f'gdalbuildvrt -overwrite '
        f'{vrt} {" ".join(inc_list)}')
@@ -67,7 +72,7 @@ vrt = f'DOY.vrt'
 doy_list = []
 for tile in gdf.tile:
     tarfile = f'{tile}_{yy}_MOS_{postfix}.tar.gz'
-    doy_tif = f'/vsitar/vsis3/{bucket}/{prefix}/tarfiles/{tarfile}/{tile}_{yy}_date_{postfix}.tif'
+    doy_tif = f'/vsitar/vsis3/{bucket}/{prefix}/tarfiles/{tarfile}/{tile}_{yy}_date_{postfix}{suffix}'
     doy_list.append(doy_tif)
 cmd = (f'gdalbuildvrt -overwrite '
        f'{vrt} {" ".join(doy_list)}')
