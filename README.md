@@ -46,7 +46,9 @@ Supported **(country, state)** are (peru, ucayali) and (brazil, para) now.
 ```
 (data-prep) [username@ip-xxx-xxx-xxx-xxx Sentinel]$ cd ../ALOS-2
 (data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ python download_alos2_mosaic.py country state year
-(data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ python filter_alos2_mosaic.py country state year
+(data-prep) [username@ip-xxx-xxx-xxx-xxx Sentinel]$ conda activate treepeople
+(treepeople) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ python filter_alos2_mosaic.py country state year
+(treepeople) [username@ip-xxx-xxx-xxx-xxx Sentinel]$ conda activate data-prep
 (data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ python proc_alos2_tiles.py country state year
 ```
 
@@ -81,4 +83,10 @@ After all processed tiles are loaded to your Google Drive, download them locally
 ```
 (data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ cd ../Stacks
 (data-prep) [username@ip-xxx-xxx-xxx-xxx Stacks]$ python build_stacks.py country state year
+```
+
+## Build RVI VRTs and generate condensed stacks ##
+```
+(data-prep) [username@ip-xxx-xxx-xxx-xxx Stacks]$ python build_rvi_vrt.py country state year
+(data-prep) [username@ip-xxx-xxx-xxx-xxx Stacks]$ python build_condensed_stacks.py country state year
 ```
