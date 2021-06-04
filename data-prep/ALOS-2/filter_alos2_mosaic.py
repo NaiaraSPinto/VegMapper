@@ -44,11 +44,16 @@ for tile in gdf.tile:
         # ALOS-2
         postfix = 'F02DAR'
 
+    if year < 2019:
+        suffix = ''
+    else:
+        suffix = '.tif'
+
     yy = str(year)[2:]
     tarfile = f'{prefix}/tarfiles/{tile}_{yy}_MOS_{postfix}.tar.gz'
 
     for pq in ['HH', 'HV']:
-        dn_tif = f'/vsitar/vsis3/{bucket}/{tarfile}/{tile}_{yy}_sl_{pq}_{postfix}.tif'
+        dn_tif = f'/vsitar/vsis3/{bucket}/{tarfile}/{tile}_{yy}_sl_{pq}_{postfix}{suffix}'
         g0_tif = Path(f'{tile}_{yy}_g0_{pq}_{postfix}.tif')
 
         # Convert DN to gamma0
