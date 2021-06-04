@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - ee
+  - earthengine-api
   - geemap
   - requests
   - pandas
