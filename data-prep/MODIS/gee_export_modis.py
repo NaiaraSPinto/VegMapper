@@ -20,7 +20,7 @@ if year < 1900 or year > 2100:
 print(f'state: {state}')
 print(f'year: {year}')
 
-gdf_tiles = gpd.read_file('../AOI/{state}/{state}_tiles.geojson')
+gdf_tiles = gpd.read_file(f'../AOI/{state}/{state}_tiles.geojson')
 epsg = gdf_tiles.crs.to_epsg()
 
 ee.Initialize()
