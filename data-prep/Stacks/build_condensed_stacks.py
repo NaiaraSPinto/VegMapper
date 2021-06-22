@@ -44,15 +44,19 @@ for i in gdf.index:
 
         with rasterio.open(stack_tif) as dset:
             ndvi = np.int16(np.round(dset.read(7)*100))
+            ndvi[dset.read_masks(7) == 0] = -9999
             tc = np.int16(dset.read(8))
+            tc[dset.read_masks(8) == 0] = -9999
             profile = dset.profile
         with rasterio.Env(GDAL_VRT_ENABLE_PYTHON=True):
             with rasterio.open(c_rvi_vrt) as dset:
                 c_rvi = np.int16(np.round(dset.read(1)*100))
+                c_rvi[dset.read_masks(1) == 0] = -9999
             with rasterio.open(l_rvi_vrt) as dset:
                 l_rvi = np.int16(np.round(dset.read(1)*100))
+                l_rvi[dset.read_masks(1) == 0] = -9999
 
-        profile.update(dtype=np.int16, count=4)
+        profile.update(dtype=np.int16, count=4, nodata=-9999)
 
         cstack = Path(f'{state}_condensed_stacks_{year}_h{h}v{v}.tif')
         with rasterio.open(cstack, 'w', **profile) as dset:
