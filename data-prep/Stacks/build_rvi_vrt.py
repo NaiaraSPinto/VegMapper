@@ -82,8 +82,8 @@ for i in gdf.index:
         with open(l_rvi_vrt, 'w') as f:
             f.writelines(lines)
 
-        s3.upload_file(c_rvi_vrt, bucket, f'{prefix}/C-RVI/{c_rvi_vrt}')
-        s3.upload_file(l_rvi_vrt, bucket, f'{prefix}/L-RVI/{l_rvi_vrt}')
+        s3.upload_file(str(c_rvi_vrt), bucket, f'{prefix}/C-RVI/{c_rvi_vrt}')
+        s3.upload_file(str(l_rvi_vrt), bucket, f'{prefix}/L-RVI/{l_rvi_vrt}')
 
         c_rvi_vrt.unlink()
         l_rvi_vrt.unlink()
