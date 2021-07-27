@@ -40,7 +40,7 @@ if not s1_vrt_dir.exists():
 
 # Sentinel-1 VRT
 gdf = gpd.read_file(f'../Sentinel/granules/{state}/{state}_sentinel_granules_{year}_dry.geojson')
-gdf_granules = gdf.groupby(gdf.columns[[12, 6]].to_list()).size().reset_index()
+gdf_granules = gdf.groupby(['pathNumber', 'frameNumber']).size().reset_index()
 
 # Group granules by EPSG codes
 granules = {}
