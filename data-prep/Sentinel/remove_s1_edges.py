@@ -27,7 +27,7 @@ print(f'state: {state}')
 print(f'year: {year}')
 
 gdf = gpd.read_file(f'granules/{state}/{state}_sentinel_granules_{year}_dry.geojson')
-gdf = gdf.groupby(gdf.columns[[12, 6]].to_list()).size().reset_index()
+gdf = gdf.groupby(['pathNumber', 'frameNumber']).size().reset_index()
 
 s3 = boto3.client('s3')
 bucket = 'servir-public'
