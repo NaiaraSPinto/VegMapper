@@ -27,8 +27,9 @@ def main():
     if len(sys.argv) != 2:
         print("error: missing config file or too many arguments")
         print("USAGE: python automation.py <config file>")
-    else:
-        config_file = sys.argv[1]
+        sys.exit()
+    
+    config_file = sys.argv[1]
     config = ConfigParser()
     config.read(config_file)
 
@@ -38,19 +39,21 @@ def main():
     dest_bucket = config['aws']['dest_bucket']
     prefix_str = config['aws']['prefix_str']
 
-    submit_granules_switch = config['switches']['submit_granules']
-    copy_processed_granules_to_bucket = config['switches']['copy_processed_granules_to_bucket']
-    calculate_temporal_average = config['switches']['calculate_temporal_average']
-    dry_season_only = config['switches']['dry_season_only'] in ['true', 'True', 't', 'T']
+    submit_granules_switch = config['switches']['submit_granules'].lower() in {"true", "t"}
+    copy_processed_granules_to_bucket = config['switches']['copy_processed_granules_to_bucket'].lower() in {"true", "t"}
+    calculate_temporal_average = config['switches']['calculate_temporal_average'].lower() in {"true", "t"}
 
     max_threads = int(config['misc']['max_threads'])
 
     hyp3 = HyP3(username=hyp3_username, password=hyp3_password)
-    s3 = boto3.resource('s3')
+    try:
+        s3 = boto3.resource('s3')
+    except:
+        print("Error connecting to S3. Make sure your EC2 instance is able to access S3.")
 
     granules_group_dict = generate_granules_group_dict(config['csv']['csv'])
 
-    if submit_granules_switch.lower() == "t" or submit_granules_switch.lower() == "true":
+    if submit_granules_switch:
         submit_granules(hyp3, granules_group_dict)
 
     # use threading to prevent entire script crashing if one operation throws an error
@@ -58,7 +61,7 @@ def main():
         futures = []
         for year_path_frame in granules_group_dict.keys():
             year, path_frame = year_path_frame.split('_', 1)
-            futures.append(executor.submit(thread_function, hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_processed_granules_to_bucket, calculate_temporal_average, dry_season_only))
+            futures.append(executor.submit(thread_function, hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_processed_granules_to_bucket, calculate_temporal_average))
 
         for fut in futures:
             print(fut.result())
@@ -66,15 +69,15 @@ def main():
 
     print("done with everything")
 
-def thread_function(hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_processed_granules_to_bucket, calculate_temporal_average, dry_season_only):
-    if copy_processed_granules_to_bucket.lower() == "t" or copy_processed_granules_to_bucket.lower() == "true":
+def thread_function(hyp3, s3, dest_bucket, prefix_str, year, path_frame, copy_processed_granules_to_bucket, calculate_temporal_average):
+    if copy_processed_granules_to_bucket:
         print(year, path_frame, "copying jobs to bucket")
         copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame)
         print(year, path_frame, "DONE copying jobs to bucket")
 
-    if calculate_temporal_average.lower() == "t" or calculate_temporal_average.lower() == "true":
+    if calculate_temporal_average:
         print(year, path_frame, "building vrt and uploading to s3")
-        VV_VRT_filename, VH_VRT_filename, INC_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, dry_season_only)
+        VV_VRT_filename, VH_VRT_filename, INC_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame)
         print(year, path_frame, "DONE building vrt and uploading to s3")
 
         print(year, path_frame, "calc temp avg and uploading to s3")
@@ -140,16 +143,16 @@ def copy_granules_to_bucket(hyp3, s3, dest_bucket, prefix_str, year, path_frame)
         if not today > expiration_time: # TODO: Today's date in utc
             try:
                 s3.meta.client.copy(copy_source, Bucket=dest_bucket, Key=destination_key)
-            except:
-                print("Error copying from {} to {}/{}".format(copy_source,dest_bucket,destination_key))
+            except Exception as e:
+                print("Error copying processed granule to your bucket. ")
 
         else:
             # job is expired and cannot be copied
             pass
 
-def build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, dry_season_only):
+def build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame):
 
-    VV_VRT_filename, VH_VRT_filename, INC_VRT_filename = build_vrt(s3, dest_bucket, prefix_str, year, path_frame, dry_season_only)
+    VV_VRT_filename, VH_VRT_filename, INC_VRT_filename = build_vrt(s3, dest_bucket, prefix_str, year, path_frame)
 
     VV_VRT_s3_key = os.path.join(prefix_str, year, path_frame, VV_VRT_filename)
     VH_VRT_s3_key = os.path.join(prefix_str, year, path_frame, VH_VRT_filename)
@@ -161,7 +164,7 @@ def build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, dr
 
     return VV_VRT_filename, VH_VRT_filename, INC_VRT_filename
 
-def build_vrt(s3, bucket_str, prefix_str, year, path_frame, dry_season_only):
+def build_vrt(s3, bucket_str, prefix_str, year, path_frame):
     # if the bucket has more files that we don't care about, use this to filter only files that start with the given prefix string
     bucket_object = s3.Bucket(bucket_str)
 
@@ -172,16 +175,9 @@ def build_vrt(s3, bucket_str, prefix_str, year, path_frame, dry_season_only):
     folder = os.path.join(prefix_str, year, path_frame)
     for file in bucket_object.objects.filter(Prefix=folder):
         if file.key.endswith('.zip'):
-            acquisition_time = datetime.strptime(file.key.split('_')[-6], '%Y%m%dT%H%M%S')
-            if dry_season_only:
-                if (acquisition_time.month >= 5) & (acquisition_time.month <= 9):
-                    VV_list.append(generate_tif_full_filename(bucket_str, file.key, "VV"))
-                    VH_list.append(generate_tif_full_filename(bucket_str, file.key, "VH"))
-                    INC_list.append(generate_tif_full_filename(bucket_str, file.key, "inc_map"))
-            else:
-                VV_list.append(generate_tif_full_filename(bucket_str, file.key, "VV"))
-                VH_list.append(generate_tif_full_filename(bucket_str, file.key, "VH"))
-                INC_list.append(generate_tif_full_filename(bucket_str, file.key, "inc_map"))
+            VV_list.append(generate_tif_full_filename(bucket_str, file.key, "VV"))
+            VH_list.append(generate_tif_full_filename(bucket_str, file.key, "VH"))
+            INC_list.append(generate_tif_full_filename(bucket_str, file.key, "inc_map"))
 
     # TODO: any other kwargs we're missing? targetAlignedPixels?
     VV_VRT_filename = "{}_{}_VV.vrt".format(year, path_frame)
