@@ -1,19 +1,16 @@
-import argparse
-import pandas as pd
-
-import boto3
-from botocore.exceptions import ClientError
-
 import os
-import concurrent.futures
 import ntpath
 import time
 import subprocess
-
 import re
+import argparse
 
+import pandas as pd
 import numpy as np
 import rasterio
+
+import boto3
+from botocore.exceptions import ClientError
 
 def main():
     
@@ -27,8 +24,6 @@ def main():
     prefix_str = args.bucket_path.split("/")[1:]
 
     csv = args.csv
-    # TODO: replace thread function with try/catch block
-    max_threads = 1
 
     try:
         s3 = boto3.resource('s3')
@@ -37,27 +32,21 @@ def main():
 
     granules_group_dict = generate_granules_group_dict(csv)
 
-    # use threading to prevent entire script crashing if one operation throws an error
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
-        futures = []
-        for year_path_frame in granules_group_dict.keys():
-            year, path_frame = year_path_frame.split('_', 1)
-            futures.append(executor.submit(thread_function, s3, dest_bucket, prefix_str, year, path_frame))
-
-        for fut in futures:
-            print(fut.result())
-        executor.shutdown(wait=True) # wait for all threads to finish
-
+    for year_path_frame in granules_group_dict.keys():
+        year, path_frame = year_path_frame.split('_', 1)
+        try:
+            print(year, path_frame, "building vrt and uploading to s3")
+            VV_VRT_filename, VH_VRT_filename, INC_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame)
+            print(year, path_frame, "DONE building vrt and uploading to s3")
+        
+            print(year, path_frame, "calc temp avg and uploading to s3")
+            calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, VV_VRT_filename, VH_VRT_filename, INC_VRT_filename)
+            print(year, path_frame, "DONE calc temp avg and uploading to s3")
+        # TODO: what sort of errors might occur? need to be more descriptive/precise here
+        except Exception as e:
+            print("ERROR!", e)
+            
     print("done with everything")
-
-def thread_function(s3, dest_bucket, prefix_str, year, path_frame):
-    print(year, path_frame, "building vrt and uploading to s3")
-    VV_VRT_filename, VH_VRT_filename, INC_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame)
-    print(year, path_frame, "DONE building vrt and uploading to s3")
-
-    print(year, path_frame, "calc temp avg and uploading to s3")
-    calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, VV_VRT_filename, VH_VRT_filename, INC_VRT_filename)
-    print(year, path_frame, "DONE calc temp avg and uploading to s3")
 
 """
 Returns the granules dictionary
