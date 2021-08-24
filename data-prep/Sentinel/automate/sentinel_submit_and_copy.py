@@ -117,21 +117,20 @@ def get_granule_sources(hyp3, year, path_frame):
     batch = hyp3.find_jobs(name=year_path_frame)
     batch = hyp3.watch(batch)
 
-    return [
-        {'Bucket':job.files[0]['s3']['bucket'],'Key':job.files[0]['s3']['key'],'Expiration':job.expiration_time} 
-        for job in batch.jobs]
+    # list of tuples, first item is dictionary with Bucket and Key, second item datetime of expiration time 
+    return [({'Bucket':job.files[0]['s3']['bucket'],'Key':job.files[0]['s3']['key']}, job.expiration_time)  
+            for job in batch.jobs]
 
 def copy_granules_to_bucket(s3, dest_bucket, prefix_str, year, path_frame, granule_sources):
-    for copy_source in granule_sources:
+    for copy_source, expiration_time in granule_sources:
         filename = ntpath.basename(copy_source['Key'])
         destination_key = os.path.join(prefix_str, f'{year}/{path_frame}/{filename}')
-        expiration_time = copy_source['Expiration']
         today = datetime.now(timezone.utc)
         if not today > expiration_time: # TODO: Today's date in utc
             try:
                 s3.meta.client.copy(copy_source, Bucket=dest_bucket, Key=destination_key)
             except Exception as e:
-                print("Error copying processed granule to your bucket.")
+                print("\nError copying processed granule to your bucket. Traceback:")
                 print(traceback.print_exc())
                 print(f"Failed granule: {copy_source}")
 
