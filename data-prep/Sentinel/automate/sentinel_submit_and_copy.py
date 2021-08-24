@@ -25,18 +25,18 @@ from pathlib import Path
 def main():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--bucket_path', type=str, default='servir-public/geotiffs/peru/sentinel_1', help='Enter S3 bucket path to store processed granules (e.g. servir-public/geotiffs/peru/sentinel_1)')
-    parser.add_argument('--csv', type=str, help='Path to CSV file that contains granules to be submitted', required=True)
-    parser.add_argument('-h', '--help', action='help', help='Submit Sentinel Granules to Alaska Satellite Facility (ASF) HyP3 for processing.')
+    parser.add_argument('--csv', type=str, help='Path to CSV file that contains granules to be submitted or copied.', required=True)
+    parser.add_argument('-h', '--help', action='help', help='Display help information.')
     args = parser.parse_args()
 
     hyp3_username = input("Enter HyP3 Username: ")
     hyp3_password = getpass.getpass("Enter HyP3 Password: ")
+    hyp3 = HyP3(username=hyp3_username, password=hyp3_password)
 
     dest_bucket = args.bucket_path.split("/")[0]
-    prefix_str = args.bucket_path.split("/")[1:]
+    prefix_str = args.bucket_path.split("/", 1)[1]
     copy_processed_granules_to_bucket = True if args.bucket_path else False
 
-    hyp3 = HyP3(username=hyp3_username, password=hyp3_password)
     try:
         s3 = boto3.resource('s3')
     except:
@@ -45,7 +45,6 @@ def main():
     granules_group_dict = generate_granules_group_dict(args.csv)
 
     submit_granules(hyp3, granules_group_dict)
-
     
     for year_path_frame in granules_group_dict.keys():
         year, path_frame = year_path_frame.split('_', 1)
@@ -96,9 +95,11 @@ def submit_granules(hyp3, granules_group_dict):
     print("You will be submitting the following granules for processing:")
     for year_path_frame,granule_name_list in granules_group_dict.items():
         print("{} - {} granules".format(year_path_frame, len(granule_name_list)))
-    user_input = input("Enter 'Y' to confirm you would like to submit these granules: ")
+    user_input = input((
+        "Enter 'Y' to confirm you would like to submit these granules, "
+        "or 'N' if you have already submitted the granules and want to copy the processed granules to your bucket: "))
     if user_input.lower() != "y":
-        sys.exit()
+        return
 
     # submit the jobs for all year_path_frame's
     for year_path_frame,granule_name_list in granules_group_dict.items():
@@ -116,21 +117,22 @@ def get_granule_sources(hyp3, year, path_frame):
     batch = hyp3.find_jobs(name=year_path_frame)
     batch = hyp3.watch(batch)
 
-    return [
-        {'bucket':job.files[0]['s3']['bucket'],'key':job.files[0]['s3']['key'],'expiration_time':job.expiration_time} 
-        for job in batch.jobs]
+    # list of tuples, first item is dictionary with Bucket and Key, second item datetime of expiration time 
+    return [({'Bucket':job.files[0]['s3']['bucket'],'Key':job.files[0]['s3']['key']}, job.expiration_time)  
+            for job in batch.jobs]
 
 def copy_granules_to_bucket(s3, dest_bucket, prefix_str, year, path_frame, granule_sources):
-    for copy_source in granule_sources:
+    for copy_source, expiration_time in granule_sources:
         filename = ntpath.basename(copy_source['Key'])
-        destination_key = os.path.join(prefix_str, '{}/{}/{}'.format(year, path_frame, filename))
-        expiration_time = copy_source['expiration_time']
+        destination_key = os.path.join(prefix_str, f'{year}/{path_frame}/{filename}')
         today = datetime.now(timezone.utc)
         if not today > expiration_time: # TODO: Today's date in utc
             try:
                 s3.meta.client.copy(copy_source, Bucket=dest_bucket, Key=destination_key)
             except Exception as e:
-                print("Error copying processed granule to your bucket. ")
+                print("\nError copying processed granule to your bucket. Traceback:")
+                print(traceback.print_exc())
+                print(f"Failed granule: {copy_source}")
 
         else:
             # job is expired and cannot be copied
@@ -138,3 +140,4 @@ def copy_granules_to_bucket(s3, dest_bucket, prefix_str, year, path_frame, granu
 
 if __name__ == '__main__':
    main()
+
