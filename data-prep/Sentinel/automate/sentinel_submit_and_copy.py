@@ -36,9 +36,10 @@ def main():
     ###
 
     ### Convenient variables
-    dest_bucket = args.bucket_path.split("/")[0]
-    prefix_str = args.bucket_path.split("/", 1)[1]
     copy_processed_granules_to_bucket = True if args.bucket_path else False
+    if copy_processed_granules_to_bucket:
+        dest_bucket = args.bucket_path.split("/")[0]
+        prefix_str = args.bucket_path.split("/", 1)[1]
     ###
 
     ### Dictionary keyed by year_path_frame (e.g. '2018_25_621'), value is list of granules names for that particular year_path_fame
@@ -64,10 +65,11 @@ def main():
                 traceback.print_exc()
 
         else:
-            print("Since you are not copying to your bucket, your processed ASF granules are available here:")
-            for copy_source in granule_sources:
-                print(f"{copy_source['bucket']}/{copy_source['key']}")
-                print(f"Expiration Time: {copy_source['expiration_time']}")
+            print(f"Your processed ASF granules for year_path_frame {year_path_frame} are available here:")
+            for copy_source, expiration_time in granule_sources:
+                print(f"{copy_source['Bucket']}/{copy_source['Key']}")
+                print(f"Expiration Time: {expiration_time}")
+            print("")
     ###
 
     print("Done with everything.")
@@ -144,3 +146,4 @@ def copy_granules_to_bucket(s3, dest_bucket, prefix_str, year, path_frame, granu
 
 if __name__ == '__main__':
    main()
+
