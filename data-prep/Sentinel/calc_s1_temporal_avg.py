@@ -4,6 +4,7 @@ import time
 import subprocess
 import re
 import argparse
+import traceback
 
 import pandas as pd
 import numpy as np
@@ -12,13 +13,14 @@ import rasterio
 import boto3
 from botocore.exceptions import ClientError
 
-def main():
-    
+def main():    
+    ### Setup parsing
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('bucket_path', help='...')
-    parser.add_argument('csv', help='...')
-    parser.add_argument('-h', '--help', action='help', help='Build VRTs from S1 granules and calculate temporal average.')
+    parser.add_argument('--bucket_path', type=str, help='Enter S3 bucket path to store VRTs (e.g. servir-public/geotiffs/peru/sentinel_1)', required=True)
+    parser.add_argument('--csv', type=str, help='Path to CSV file that contains granules to be submitted or copied.', required=True)
+    parser.add_argument('-h', '--help', action='help', help='Display help information.')
     args = parser.parse_args()
+    ###
 
     dest_bucket = args.bucket_path.split("/")[0]
     prefix_str = args.bucket_path.split("/")[1:]
@@ -44,14 +46,15 @@ def main():
             print(year, path_frame, "DONE calc temp avg and uploading to s3")
         # TODO: what sort of errors might occur? need to be more descriptive/precise here
         except Exception as e:
-            print("ERROR!", e)
+            print("There was an error building the VRT and calculating the temporal average. Continuing to the next granule...")
+            traceback.print_exc()
             
     print("done with everything")
 
 """
 Returns the granules dictionary
 """
-# TODO: import from other file so we don't write function twice?
+# TODO: import from other file so we don't write function twice
 def generate_granules_group_dict(csv_path):
     granules_df = pd.read_csv(csv_path)
     granules_df['Year'] = granules_df['Acquisition Date'].apply(lambda x: x.split('-')[0])
