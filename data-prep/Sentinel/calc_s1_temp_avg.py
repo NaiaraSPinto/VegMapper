@@ -15,8 +15,8 @@ from botocore.exceptions import ClientError
 
 def main():    
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('bucket_path', type=str, help='Enter S3 bucket path to store VRTs (e.g. servir-public/geotiffs/peru/sentinel_1)', required=True)
-    parser.add_argument('csv', type=str, help='Path to CSV file that contains granules to be submitted or copied.', required=True)
+    parser.add_argument('bucket_path', type=str, help='Enter S3 bucket path to store VRTs (e.g. servir-public/geotiffs/peru/sentinel_1)')
+    parser.add_argument('csv', type=str, help='Path to CSV file that contains granules to be submitted or copied.')
     parser.add_argument('-h', '--help', action='help', help='Display help information.')
     args = parser.parse_args()
 
