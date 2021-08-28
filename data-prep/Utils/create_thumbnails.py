@@ -3,14 +3,16 @@ import boto3
 from botocore.exceptions import ClientError
 
 import os
-
-# TODO: get rid of hardcoded values, maybe config file or command-line args
-BUCKET_NAME = "servir-public"
-PREFIX = "geotiffs/peru/sentinel_1/2019/171_617/2019_171_617_VV"
-RESAMPLE_SIZE = 500
+import argparse
 
 """ Given an s3 bucket and a folder, resample the geotiffs in the folder to the specified resolution. """
-def create_thumbnails(bucket, prefix, resolution):
+def create_thumbnails(bucket_path, resolution=500, folder=""):
+    bucket_path = bucket_path.split("/", 1)
+    bucket = bucket_path[0]
+    if len(bucket_path) > 1:
+        prefix = bucket_path[1]
+    else:
+        prefix = ""
     s3 = boto3.resource('s3')
     s3_bucket = s3.Bucket(bucket)
     for obj in s3_bucket.objects.filter(Prefix=prefix):
@@ -19,18 +21,19 @@ def create_thumbnails(bucket, prefix, resolution):
             # separate folder and object key
             path = obj.key.split('/')
             filename = path[-1] # always last element of key
-            # everything up to the direct filename is the folder
-            folder = "/".join(path[0:len(path) - 1])
-            thumbnail = resample(filename, bucket, folder, resolution)
-            upload_to_s3(thumbnail, bucket, folder, s3)
+            # everything up to the direct filename is the prefix
+            prefix = s3_join(*path[0:len(path) - 1])
+            thumbnail = resample(filename, bucket, prefix, resolution)
+            # upload thumbnail to subfolder, if specified
+            prefix = s3_join(prefix, folder)
+            upload_to_s3(thumbnail, bucket, prefix, s3)
     print("Done.")
 
 """ Given the name of a geotiff in an s3 bucket, resample it to the specified resolution.
     Returns the name of the file created. """
-def resample(filename, bucket, folder, resolution):
+def resample(filename, bucket, prefix, resolution):
     # 'vsis3' tells gdal the file is located in an s3 bucket
-    # this will insert backslashes on windows machines, but s3 uses forward slashes
-    full_path = os.path.join("/vsis3/", bucket, folder, filename).replace("\\", "/")
+    full_path = s3_join("/vsis3", bucket, prefix, filename)
     thumbnail_path = os.path.splitext(filename)[0] + "_thumbnail.tif"
     ds = gdal.Open(full_path)
     print("Creating thumbnail for " + filename + "...")
@@ -40,22 +43,32 @@ def resample(filename, bucket, folder, resolution):
     return thumbnail_path
     
 """ Given the name of a file on local storage, upload it to an s3 bucket then delete the local copy. """
-def upload_to_s3(filename, bucket, folder, s3):
+def upload_to_s3(filename, bucket, prefix, s3):
     try:
-        key = os.path.join(folder, filename).replace("\\", "/")
-        # TODO: should we place thumbnails in their own folder,
-        # or is it okay to keep them in the same folder as the source files?
+        key = s3_join(prefix, filename)
         print("Uploading " + filename + " to s3...")
         s3.meta.client.upload_file(Filename=filename, Bucket=bucket, Key=key)
     except ClientError as e:
         # TODO: better error handling?
         print("Error while trying to upload " + filename + ": " +  e)
     os.remove(filename)
-    
-def main():
-    create_thumbnails(BUCKET_NAME, PREFIX, RESAMPLE_SIZE)
-            
-            
 
+""" Intelligently join objects of elements with forward slashes.
+    os.path.join will use backslashes on Windows machines, which must be corrected. """
+def s3_join(*elements):
+    if len(elements) > 0:
+        return os.path.join(*elements).replace("\\", "/")
+    return ""
+
+def main():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('bucket_path', type=str, help='S3 bucket path in which geotiffs are stored to create thumbnails of (e.g. servir-stacks/peru/ucayali/2019/)')
+    parser.add_argument('-r', '--resolution', type=int, help='Resolution of the thumbnails (default: 500)', default=500)
+    parser.add_argument('-f', '--folder', type=str, help=('A subfolder to place the thumbnail images in (optional)'), default="")
+    parser.add_argument('-h', '--help', action='help', help='Display help information.')
+    args = parser.parse_args()
+
+    create_thumbnails(args.bucket_path,  args.resolution, args.folder)
+            
 if __name__ == "__main__":
     main()
