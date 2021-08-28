@@ -31,7 +31,7 @@ def main():
 
     try:
         s3 = boto3.resource('s3')
-    except:
+    except ClientError as e:
         print("Error connecting to S3. Make sure your EC2 instance is able to access S3.")
 
     granules_group_dict = generate_granules_group_dict(csv)
