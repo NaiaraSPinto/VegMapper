@@ -1,149 +1,248 @@
-from hyp3_sdk import HyP3
-
-import pandas as pd
+import argparse
+import getpass
+import os
+import subprocess
+import traceback
+from datetime import datetime, timezone
+from pathlib import Path
 
 import boto3
-
-import getpass
-import argparse
-import os
-import traceback
-import ntpath
-from datetime import datetime,timezone
+import geopandas as gpd
+import pandas as pd
+from hyp3_sdk import HyP3
 
 # TODO: Use global variables for things like s3, bucket_name?
+supported_metadata_formats = ['.csv', '.geojson']
+today = datetime.now(timezone.utc)
+
 
 def main():
-    ### Setup parsing
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--bucket_path', type=str, help='Enter S3 bucket path to store processed granules (e.g. servir-public/geotiffs/peru/sentinel_1)')
-    parser.add_argument('--csv', type=str, help='Path to CSV file that contains granules to be submitted or copied.', required=True)
-    parser.add_argument('-h', '--help', action='help', help='Display help information.')
+    # Setup argument parsing
+    parser = argparse.ArgumentParser(
+        description='submit ASF HyP3 RTC processing jobs for Sentinel-1 granules')
+    parser.add_argument('metadata', metavar='csv/geojson',
+                        type=Path,
+                        help='metadata file downloaded from ASF Vertex after data search')
+    parser.add_argument('--dst', metavar='dstpath', dest='dstpath',
+                        type=str,
+                        help=('destination path to store processed granules '
+                              '(AWS S3 - s3://dstpath, GCS - gs://dstpath, local storage - dstpath)'))
     args = parser.parse_args()
-    ###
 
-    ### Get HyP3 credentials and authenticate
-    hyp3_username = input("Enter HyP3 Username: ")
-    hyp3_password = getpass.getpass("Enter HyP3 Password: ")
-    hyp3 = HyP3(username=hyp3_username, password=hyp3_password)
-    ###
+    # Check metadata
+    if not args.metadata.exists():
+        raise Exception(f'Metadata file {args.metadata} does not exist')
+    if args.metadata.suffix not in supported_metadata_formats:
+        raise Exception(f'Metadata file format ({args.metadata.suffix}) not supported')
 
-    ### Connect to S3. Assumes S3 role already set up in EC2
-    try:
-        s3 = boto3.resource('s3')
-    except:
-        print("Error connecting to S3. Make sure your EC2 instance is able to access S3.")
-    ###
+    # Check and identify dstpath
+    if args.dstpath:
+        if args.dstpath[0:5] == 's3://':
+            try:
+                dst = 's3'
+                s3_path = Path(args.dstpath[5:])
+                s3_bucket = str(Path(s3_path.parts[0]))
+                s3_prefix = str(Path(*s3_path.parts[1:]))
+                s3 = boto3.resource('s3')
+            except:
+                raise Exception("Connection to S3 failed. Use 'aws configure' to configure.")
+        elif args.dstpath[0:5] == 'gs://':
+            try:
+                dst = 'gs'
+                gs_path = Path(args.dstpath[5:])
+                gs_bucket = Path(gs_path.parts[0])
+                gs_prefix = Path(*gs_path.parts[1:])
+                print(f'Listing gs://{gs_bucket}')
+                subprocess.check_call(f'gsutil ls gs://{gs_bucket}', shell=True)
+            except:
+                raise Exception("Listing gs://{gs_bucket} failed. Use 'gsutil config' to configure.")
+        elif Path(args.dstpath).exists():
+            dst = 'local'
+            dst_path = Path(args.dstpath)
+        else:
+            raise Exception(f'Destination path {args.dstpath} does not exist')
+    else:
+        dst = None
+        print(f'Destination path for processed granules not provided. '
+              f'The download links will be listed at the end.')
 
-    ### Convenient variables
-    copy_processed_granules_to_bucket = True if args.bucket_path else False
-    if copy_processed_granules_to_bucket:
-        dest_bucket = args.bucket_path.split("/")[0]
-        prefix_str = args.bucket_path.split("/", 1)[1]
-    ###
+    # Get Earthdata credentials and authenticate
+    earthdata_username = input('\nEnter Earthdata Username: ')
+    earthdata_password = getpass.getpass('Enter Earthdata Password: ')
+    hyp3 = HyP3(username=earthdata_username, password=earthdata_password)
 
-    ### Dictionary keyed by year_path_frame (e.g. '2018_25_621'), value is list of granules names for that particular year_path_fame
-    granules_group_dict = generate_granules_group_dict(args.csv)
-    ###
+    # Dictionary keyed by year_path_frame (e.g. "2018_25_621"), value is list of granules names for that particular year_path_fame
+    granules_group_dict = generate_granules_group_dict(args.metadata)
 
-    ### Submit granules
+    # Submit granules
     submit_granules(hyp3, granules_group_dict)
-    ###
-    
-    ### Loop through and copy to bucket, or if no bucket specified, show user which ASF bucket granule is in
+
+    # Loop through and copy to bucket, or if no bucket specified, show user which ASF bucket granule is in
     for year_path_frame in granules_group_dict.keys():
         year, path_frame = year_path_frame.split('_', 1)
-        granule_sources = get_granule_sources(hyp3, year, path_frame)
+        granule_sources = get_granule_sources(hyp3, year_path_frame)
 
-        if copy_processed_granules_to_bucket:
+        if dst == 's3':
             try:
-                print(year, path_frame, "copying jobs to bucket")
-                copy_granules_to_bucket(s3, dest_bucket, prefix_str, year, path_frame, granule_sources)
-                print(year, path_frame, "DONE copying jobs to bucket")
+                print(f'\n{year_path_frame}: copying processed granules to {args.dstpath}')
+                copy_granules_to_s3(s3, s3_bucket, s3_prefix, year, path_frame, granule_sources)
+                print(f'{year_path_frame}: DONE copying processed granules to {args.dstpath}')
             except Exception as e:
-                print("There was an error copying the granule from ASF to your bucket. Continuing to the next granule...")
+                print(f'{year_path_frame}: There was an error when copying processed granules from ASF S3 bucket to {args.dstpath}. Continuing to the next granule ...')
                 traceback.print_exc()
-
+        elif dst == 'gs':
+            try:
+                print(f'\n{year_path_frame}: copying processed granules to {args.dstpath}')
+                copy_granules_to_gs(gs_bucket, gs_prefix, year, path_frame, granule_sources)
+                print(f'{year_path_frame}: DONE copying processed granules to {args.dstpath}')
+            except Exception as e:
+                print(f'{year_path_frame}: There was an error when copying processed granules from ASF S3 bucket to {args.dstpath}. Continuing to the next granule ...')
+                traceback.print_exc()
+        elif dst == 'local':
+            try:
+                print(f'\n{year_path_frame}: downloading processed granules to {args.dstpath}')
+                download_granules(dst_path, year, path_frame, granule_sources)
+                print(f'{year_path_frame}: DONE downloading processed granules to {args.dstpath}')
+            except Exception as e:
+                print(f'{year_path_frame}: There was an error when downloaing processed granules from ASF S3 bucket to {args.dstpath}. Continuing to the next granule ...')
+                traceback.print_exc()
+            
         else:
-            print(f"Your processed ASF granules for year_path_frame {year_path_frame} are available here:")
+            print(f'\nYour processed granules for year_path_frame {year_path_frame} are available here:')
             for copy_source, expiration_time in granule_sources:
-                print(f"{copy_source['Bucket']}/{copy_source['Key']}")
-                print(f"Expiration Time: {expiration_time}")
-            print("")
-    ###
+                print(f"\n{copy_source['Bucket']}/{copy_source['Key']}")
+                print(f'Expiration Time: {expiration_time}')
+    print('\nDone with everything.')
 
-    print("Done with everything.")
 
-"""
-Returns the granules dictionary
-"""
-def generate_granules_group_dict(csv_path):
-    granules_df = pd.read_csv(csv_path)
-    granules_df['Year'] = granules_df['Acquisition Date'].apply(lambda x: x.split('-')[0])
-    granules_df = granules_df.filter(['Granule Name','Year','Path Number','Frame Number'])
-    granules_df['year_path_frame'] = granules_df.apply(lambda row: f"{row['Year']}_{row['Path Number']}_{row['Frame Number']}", axis=1)
+def generate_granules_group_dict(metadata):
+    """
+    Return the granules dictionary
+    """
+    if metadata.suffix == '.csv':
+        granules_df = pd.read_csv(metadata)
+        col_date = 'Acquisition Date'
+        col_path = 'Path Number'
+        col_frame = 'Frame Number'
+        col_granule = 'Granule Name'
+    elif metadata.suffix == '.geojson':
+        granules_df = gpd.read_file(metadata)
+        col_date = 'stopTime'
+        col_path = 'pathNumber'
+        col_frame = 'frameNumber'
+        col_granule = 'sceneName'
+    else:
+        raise Exception(f'Metadata file format ({metadata.suffix}) not supported')
 
-    granules_groups = granules_df.groupby(by=['year_path_frame'])['Granule Name']
+    granules_df['Year'] = granules_df[col_date].apply(lambda x: x.split('-')[0])
+    granules_df = granules_df.filter([col_granule, 'Year', col_path, col_frame])
+    granules_df['year_path_frame'] = granules_df.apply(lambda row: f"{row['Year']}_{row[col_path]}_{row[col_frame]}", axis=1)
 
-    # create a dictionary
-    # key example: 'year_path_frame' --> '2018_25_621'
-    # value is a list of granule names that have the year,path,frame in the key
+    granules_groups = granules_df.groupby(by=['year_path_frame'])[col_granule]
+
+    # Create a dictionary for granule groups
+    # Key: year_path_frame
+    # Value: list of granule names
     granules_group_dict = {
         key : granules_groups.get_group(x).to_list()
-        for key,x in zip(granules_groups.indices,granules_groups.groups)
+        for key, x in zip(granules_groups.indices, granules_groups.groups)
     }
 
     return granules_group_dict
 
-"""
-Submits the granules to Hyp3.
-"""
+
 def submit_granules(hyp3, granules_group_dict):
-    print("You will be submitting the following granules for processing:")
-    for year_path_frame,granule_name_list in granules_group_dict.items():
-        print(f"{year_path_frame} - {len(granule_name_list)} granules")
+    """
+    Submit HyP3 RTC jobs
+    """
+
+    quota = hyp3.check_quota()
+    print(f'\nYour remaining quota for HyP3 jobs: {quota} granules.')
+
+    print('\nYou will be submitting the following granules for HyP3 RTC processing:')
+    for year_path_frame, granule_name_list in granules_group_dict.items():
+        print(f'    {year_path_frame} - {len(granule_name_list)} granules')
     user_input = input((
-        "Enter 'Y' to confirm you would like to submit these granules, "
-        "or 'N' if you have already submitted the granules and want to copy the processed granules to your bucket: "))
+        "\nEnter 'Y' to confirm you would like to submit these granules, "
+        "or 'N' if you have already submitted the granules and want to copy the processed granules to your dstpath: "))
     if user_input.lower() != 'y':
         return
 
     # submit the jobs for all year_path_frame's
-    for year_path_frame,granule_name_list in granules_group_dict.items():
+    for year_path_frame, granule_name_list in granules_group_dict.items():
         for granule_name in granule_name_list:
                 hyp3.submit_rtc_job(granule_name, year_path_frame, resolution=30.0, radiometry='gamma0',
                                     scale='power', speckle_filter=False, dem_matching=True,
                                     include_dem=True, include_inc_map=True, include_scattering_area=True)
 
-    print("Jobs successfully submitted.")
+    print('Jobs successfully submitted.')
 
-def get_granule_sources(hyp3, year, path_frame):
-    # returns a list of dictionaries where files are located on ASF's bucket
-    year_path_frame = '_'.join([year, path_frame])
 
-    batch = hyp3.find_jobs(name=year_path_frame)
-    batch = hyp3.watch(batch)
+def get_granule_sources(hyp3, job_name):
+    """
+    Return a list of dictionaries where files are located on ASF's bucket
+    """
+    batch = hyp3.find_jobs(name=job_name)
+    if not batch.complete():
+        print(f"\nThe jobs for {job_name} not complete yet. You can see the progress below (Ctrl+C if you don't want to wait).")
+        batch = hyp3.watch(batch)
 
-    # list of tuples, first item is dictionary with Bucket and Key, second item datetime of expiration time 
-    return [({'Bucket':job.files[0]['s3']['bucket'],'Key':job.files[0]['s3']['key']}, job.expiration_time)  
+    # List of tuples:
+    # item 1: dictionary with Bucket and Key
+    # item 2: datetime of expiration time
+    # item 3: URL of processed granule
+    return [({'Bucket': job.files[0]['s3']['bucket'], 'Key': job.files[0]['s3']['key']}, job.expiration_time, job.files[0]['url'])
             for job in batch.jobs]
 
-def copy_granules_to_bucket(s3, dest_bucket, prefix_str, year, path_frame, granule_sources):
-    for copy_source, expiration_time in granule_sources:
-        filename = ntpath.basename(copy_source['Key'])
-        destination_key = os.path.join(prefix_str, f'{year}/{path_frame}/{filename}')
-        today = datetime.now(timezone.utc)
-        if not today > expiration_time: # TODO: Today's date in utc
+
+def copy_granules_to_s3(s3, dst_bucket, dst_prefix, year, path_frame, granule_sources):
+    for copy_source, expiration_time, _ in granule_sources:
+        filename = Path(copy_source['Key']).name
+        dst_key = f'{dst_prefix}/{year}/{path_frame}/{filename}'
+        if not today > expiration_time:
             try:
-                s3.meta.client.copy(copy_source, Bucket=dest_bucket, Key=destination_key)
+                s3.meta.client.copy(copy_source, Bucket=dst_bucket, Key=dst_key)
             except Exception as e:
-                print("\nError copying processed granule to your bucket. Traceback:")
+                print('\nError copying processed granule to your bucket. Traceback:')
                 print(traceback.print_exc())
-                print(f"Failed granule: {copy_source}")
+                print(f'Failed granule: {copy_source}')
         else:
-            # job is expired and cannot be copied
-            pass
+            raise Exception('\nJobs already expired and cannot be copied.')
+
+
+def copy_granules_to_gs(dst_bucket, dst_prefix, year, path_frame, granule_sources):
+    for copy_source, expiration_time, _ in granule_sources:
+        src_bucket = copy_source['Bucket']
+        src_key = copy_source['Key']
+        src_path = f's3://{src_bucket}/{src_key}'
+        dst_path = f'gs://{dst_bucket}/{dst_prefix}/{year}/{path_frame}'
+        if not today > expiration_time:
+            try:
+                subprocess.check_call(f'gsutil cp {src_path} {dst_path}', shell=True)
+            except Exception as e:
+                print('\nError copying processed granule to your bucket. Traceback:')
+                print(traceback.print_exc())
+                print(f'Failed granule: {copy_source}')
+        else:
+            raise Exception('\nJobs already expired and cannot be copied.')
+
+
+def download_granules(dst_path, year, path_frame, granule_sources):
+    for copy_source, expiration_time, url in granule_sources:
+        dst_path = dst_path / year / path_frame
+        if not dst_path.exists():
+            dst_path.mkdir(parents=True)
+        if not today > expiration_time:
+            try:
+                subprocess.check_call(f'wget -P {dst_path} {url}', shell=True)
+            except Exception as e:
+                print(f'\nError downloading processed granule to {dst_path}. Traceback:')
+                print(traceback.print_exc())
+                print(f'Failed granule: {copy_source}')
+        else:
+            raise Exception('\nJobs already expired and cannot be copied.')
+
 
 if __name__ == '__main__':
-   main()
+    main()
 
