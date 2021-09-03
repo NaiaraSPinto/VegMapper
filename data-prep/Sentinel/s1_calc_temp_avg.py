@@ -13,6 +13,8 @@ import rasterio
 import boto3
 from botocore.exceptions import ClientError
 
+from s1_metadata_summary import generate_granules_group_dict
+
 def main():    
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('bucket_path', type=str, help='Enter S3 bucket path to store VRTs (e.g. servir-public/geotiffs/peru/sentinel_1)')
@@ -53,27 +55,6 @@ def main():
             
     print("done with everything")
 
-"""
-Returns the granules dictionary
-"""
-# TODO: import from other file so we don't write function twice
-def generate_granules_group_dict(csv_path):
-    granules_df = pd.read_csv(csv_path)
-    granules_df['Year'] = granules_df['Acquisition Date'].apply(lambda x: x.split('-')[0])
-    granules_df = granules_df.filter(['Granule Name','Year','Path Number','Frame Number'])
-    granules_df['year_path_frame'] = granules_df.apply(lambda row: "{}_{}_{}".format(row['Year'], row['Path Number'], row['Frame Number']), axis=1)
-
-    granules_groups = granules_df.groupby(by=['year_path_frame'])['Granule Name']
-
-    # create a dictionary
-    # key example: 'year_path_frame' --> '2018_25_621'
-    # value is a list of granule names that have the year,path,frame in the key
-    granules_group_dict = {
-        key : granules_groups.get_group(x).to_list()
-        for key,x in zip(granules_groups.indices,granules_groups.groups)
-    }
-
-    return granules_group_dict
 
 def build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame):
 

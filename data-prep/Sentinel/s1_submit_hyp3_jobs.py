@@ -11,6 +11,8 @@ import geopandas as gpd
 import pandas as pd
 from hyp3_sdk import HyP3
 
+from s1_metadata_summary import generate_granules_group_dict
+
 # TODO: Use global variables for things like s3, bucket_name?
 supported_metadata_formats = ['.csv', '.geojson']
 today = datetime.now(timezone.utc)
@@ -113,42 +115,6 @@ def main():
                 print(f"\n{copy_source['Bucket']}/{copy_source['Key']}")
                 print(f'Expiration Time: {expiration_time}')
     print('\nDone with everything.')
-
-
-def generate_granules_group_dict(metadata):
-    """
-    Return the granules dictionary
-    """
-    if metadata.suffix == '.csv':
-        granules_df = pd.read_csv(metadata)
-        col_date = 'Acquisition Date'
-        col_path = 'Path Number'
-        col_frame = 'Frame Number'
-        col_granule = 'Granule Name'
-    elif metadata.suffix == '.geojson':
-        granules_df = gpd.read_file(metadata)
-        col_date = 'stopTime'
-        col_path = 'pathNumber'
-        col_frame = 'frameNumber'
-        col_granule = 'sceneName'
-    else:
-        raise Exception(f'Metadata file format ({metadata.suffix}) not supported')
-
-    granules_df['Year'] = granules_df[col_date].apply(lambda x: x.split('-')[0])
-    granules_df = granules_df.filter([col_granule, 'Year', col_path, col_frame])
-    granules_df['year_path_frame'] = granules_df.apply(lambda row: f"{row['Year']}_{row[col_path]}_{row[col_frame]}", axis=1)
-
-    granules_groups = granules_df.groupby(by=['year_path_frame'])[col_granule]
-
-    # Create a dictionary for granule groups
-    # Key: year_path_frame
-    # Value: list of granule names
-    granules_group_dict = {
-        key : granules_groups.get_group(x).to_list()
-        for key, x in zip(granules_groups.indices, granules_groups.groups)
-    }
-
-    return granules_group_dict
 
 
 def submit_granules(hyp3, granules_group_dict):
