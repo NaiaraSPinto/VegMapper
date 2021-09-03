@@ -58,7 +58,7 @@ def main():
                 raise Exception("Listing gs://{gs_bucket} failed. Use 'gsutil config' to configure.")
         elif Path(args.dstpath).exists():
             dst = 'local'
-            dst_path = Path(args.dstpath)
+            local_path = Path(args.dstpath)
         else:
             raise Exception(f'Destination path {args.dstpath} does not exist')
     else:
@@ -101,7 +101,7 @@ def main():
         elif dst == 'local':
             try:
                 print(f'\n{year_path_frame}: downloading processed granules to {args.dstpath}')
-                download_granules(dst_path, year, path_frame, granule_sources)
+                download_granules(local_path, year, path_frame, granule_sources)
                 print(f'{year_path_frame}: DONE downloading processed granules to {args.dstpath}')
             except Exception as e:
                 print(f'{year_path_frame}: There was an error when downloaing processed granules from ASF S3 bucket to {args.dstpath}. Continuing to the next granule ...')
@@ -229,14 +229,14 @@ def copy_granules_to_gs(dst_bucket, dst_prefix, year, path_frame, granule_source
 
 def download_granules(dst_path, year, path_frame, granule_sources):
     for copy_source, expiration_time, url in granule_sources:
-        dst_path = dst_path / year / path_frame
-        if not dst_path.exists():
-            dst_path.mkdir(parents=True)
+        dst_dir = dst_path / year / path_frame
+        if not dst_dir.exists():
+            dst_dir.mkdir(parents=True)
         if not today > expiration_time:
             try:
-                subprocess.check_call(f'wget -P {dst_path} {url}', shell=True)
+                subprocess.check_call(f'wget -P {dst_dir} {url}', shell=True)
             except Exception as e:
-                print(f'\nError downloading processed granule to {dst_path}. Traceback:')
+                print(f'\nError downloading processed granule to {dst_dir}. Traceback:')
                 print(traceback.print_exc())
                 print(f'Failed granule: {copy_source}')
         else:
