@@ -109,7 +109,7 @@ def main():
             
         else:
             print(f'\nYour processed granules for year_path_frame {year_path_frame} are available here:')
-            for copy_source, expiration_time in granule_sources:
+            for copy_source, expiration_time, _ in granule_sources:
                 print(f"\n{copy_source['Bucket']}/{copy_source['Key']}")
                 print(f'Expiration Time: {expiration_time}')
     print('\nDone with everything.')
