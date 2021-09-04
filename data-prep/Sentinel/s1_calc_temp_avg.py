@@ -5,8 +5,8 @@ import subprocess
 import re
 import argparse
 import traceback
+from pathlib import Path
 
-import pandas as pd
 import numpy as np
 import rasterio
 
@@ -17,36 +17,41 @@ from s1_metadata_summary import generate_granules_group_dict
 
 def main():    
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('bucket_path', type=str, help='Enter S3 bucket path to store VRTs (e.g. servir-public/geotiffs/peru/sentinel_1)')
-    parser.add_argument('csv', type=str, help='Path to CSV file that contains granules to be submitted or copied.')
-    parser.add_argument('-h', '--help', action='help', help='Display help information.')
+    parser.add_argument('--dst', metavar='dstpath', dest='dstpath',
+                        type=str,
+                        help=('destination path to store VRTS (ex s3://dstpath)'),
+                        required=True)
+    parser.add_argument('metadata', metavar='csv/geojson',
+                        type=Path,
+                        help='metadata file downloaded from ASF Vertex after data search')
     args = parser.parse_args()
+    metadata = args.metadata
 
-    bucket_path = args.bucket_path.split("/", 1)
-    dest_bucket = bucket_path[0]
-    if len(bucket_path) > 1:
-        prefix_str = bucket_path[1]
+    # TODO: add support for GCS or local storage?
+    if args.dstpath[0:5] == 's3://':
+        try:
+            dst = 's3'
+            s3_path = Path(args.dstpath[5:])
+            s3_bucket = str(Path(s3_path.parts[0]))
+            s3_prefix = str(Path(*s3_path.parts[1:]))
+            s3 = boto3.resource('s3')
+        except:
+            raise Exception("Connection to S3 failed. Use 'aws configure' to configure.")
     else:
-        prefix_str = ""
+        raise Exception("Support for sytems other than S3 not supported at this time."
+                        "Prefix your bucket path with s3://")
 
-    csv = args.csv
-
-    try:
-        s3 = boto3.resource('s3')
-    except ClientError as e:
-        print("Error connecting to S3. Make sure your EC2 instance is able to access S3.")
-
-    granules_group_dict = generate_granules_group_dict(csv)
+    granules_group_dict = generate_granules_group_dict(metadata)
 
     for year_path_frame in granules_group_dict.keys():
         year, path_frame = year_path_frame.split('_', 1)
         try:
             print(year, path_frame, "building vrt and uploading to s3")
-            VV_VRT_filename, VH_VRT_filename, INC_VRT_filename = build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame)
+            VV_VRT_filename, VH_VRT_filename, INC_VRT_filename = build_vrt_and_upload_to_s3(s3, s3_bucket, s3_prefix, year, path_frame)
             print(year, path_frame, "DONE building vrt and uploading to s3")
         
             print(year, path_frame, "calc temp avg and uploading to s3")
-            calc_temp_avg_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame, VV_VRT_filename, VH_VRT_filename, INC_VRT_filename)
+            calc_temp_avg_and_upload_to_s3(s3, s3_bucket, s3_prefix, year, path_frame, VV_VRT_filename, VH_VRT_filename, INC_VRT_filename)
             print(year, path_frame, "DONE calc temp avg and uploading to s3")
         # TODO: what sort of errors might occur? need to be more descriptive/precise here
         except Exception as e:
@@ -241,8 +246,7 @@ def upload_to_s3(s3, local_filepath, bucket, key):
     try:
         s3.meta.client.upload_file(Filename=local_filepath, Bucket=bucket, Key=key)
     except ClientError as e:
-        # TODO: add descriptive error messages
-        print("ERROR!", e)
+        print(f"error uploading {local_filepath} to s3:", e)
 
 if __name__ == '__main__':
    main()
