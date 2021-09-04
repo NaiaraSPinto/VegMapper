@@ -1,19 +1,15 @@
 import argparse
 import getpass
-import os
 import subprocess
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
-import geopandas as gpd
-import pandas as pd
 from hyp3_sdk import HyP3
 
 from s1_metadata_summary import generate_granules_group_dict
 
-# TODO: Use global variables for things like s3, bucket_name?
 supported_metadata_formats = ['.csv', '.geojson']
 today = datetime.now(timezone.utc)
 
