@@ -26,6 +26,7 @@ def generate_granules_group_dict(metadata):
     else:
         raise Exception(f'Metadata file format ({metadata.suffix}) not supported')
 
+    granules_df = granules_df.sort_values(by=[col_granule])
     granules_df['Year'] = granules_df[col_date].apply(lambda x: x.split('-')[0])
     granules_df = granules_df.filter([col_granule, 'Year', col_path, col_frame])
     granules_df['year_path_frame'] = granules_df.apply(lambda row: f"{row['Year']}_{row[col_path]}_{row[col_frame]}", axis=1)
@@ -52,7 +53,7 @@ def main():
 
     args = parser.parse_args()
 
-        # Check metadata
+    # Check metadata
     if not args.metadata.exists():
         raise Exception(f'Metadata file {args.metadata} does not exist')
     if args.metadata.suffix not in supported_metadata_formats:
@@ -62,7 +63,8 @@ def main():
     print(f"\n{args.metadata} contains the following granules:\n")
     for year_path_frame in granules_dict:
         year, path, frame = year_path_frame.split("_")
-        print(f"Year {year}, Path {path}, Frame {frame}:")
+        num_granules = len(granules_dict[year_path_frame])
+        print(f"Year {year}, Path {path}, Frame {frame} ({num_granules} granules):")
         for granule in granules_dict[year_path_frame]:
             print(f"  - {granule}")
 
