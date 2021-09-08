@@ -198,7 +198,7 @@ def download_granules(dst_path, year, path_frame, granule_sources):
             dst_dir.mkdir(parents=True)
         if not today > expiration_time:
             try:
-                subprocess.check_call(f'wget -P {dst_dir} {url}', shell=True)
+                subprocess.check_call(f'wget -c -P {dst_dir} {url}', shell=True)
             except Exception as e:
                 print(f'\nError downloading processed granule to {dst_dir}. Traceback:')
                 print(traceback.print_exc())
