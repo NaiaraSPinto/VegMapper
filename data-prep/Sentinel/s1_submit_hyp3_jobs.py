@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse
 import getpass
 import subprocess
@@ -104,7 +106,7 @@ def main():
             except Exception as e:
                 print(f'{year_path_frame}: There was an error when downloaing processed granules from ASF S3 bucket to {args.dstpath}. Continuing to the next granule ...')
                 traceback.print_exc()
-            
+
         else:
             print(f'\nYour processed granules for year_path_frame {year_path_frame} are available here:')
             for copy_source, expiration_time, _ in granule_sources:
@@ -207,4 +209,3 @@ def download_granules(dst_path, year, path_frame, granule_sources):
 
 if __name__ == '__main__':
     main()
-

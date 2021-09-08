@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse
 import pandas as pd
 import geopandas as gpd
@@ -38,7 +40,6 @@ def generate_granules_group_dict(metadata):
         for key, x in zip(granules_groups.indices, granules_groups.groups)
     }
 
-    
     return granules_group_dict
 
 def main():
@@ -48,15 +49,15 @@ def main():
     parser.add_argument('metadata', metavar='csv/geojson',
                         type=Path,
                         help='metadata file downloaded from ASF Vertex after data search')
-    
+
     args = parser.parse_args()
-    
+
         # Check metadata
     if not args.metadata.exists():
         raise Exception(f'Metadata file {args.metadata} does not exist')
     if args.metadata.suffix not in supported_metadata_formats:
         raise Exception(f'Metadata file format ({args.metadata.suffix}) not supported')
-        
+
     granules_dict = generate_granules_group_dict(args.metadata)
     print(f"\n{args.metadata} contains the following granules:\n")
     for year_path_frame in granules_dict:
@@ -64,6 +65,7 @@ def main():
         print(f"Year {year}, Path {path}, Frame {frame}:")
         for granule in granules_dict[year_path_frame]:
             print(f"  - {granule}")
-    
+
+
 if __name__ == "__main__":
     main()
