@@ -192,11 +192,11 @@ def main():
         mask[side_edge > 0] = 0
         edge[side_edge > 0] = side_edge[side_edge > 0]
 
-    if nodata:
-        data[edge > 0] = nodata
-    else:
+    if nodata is None:
         raise Exception('No nodata value set for srcfile. '
                         'Set a nodata value first')
+    else:
+        data[edge > 0] = nodata
     with rasterio.open(args.dstfile, 'w', **profile) as dst:
         dst.write(data, 1)
 
