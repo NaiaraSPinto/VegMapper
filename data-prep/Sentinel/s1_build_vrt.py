@@ -5,7 +5,6 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-
 def main():
     parser = argparse.ArgumentParser(
         description='build a VRT to contain time-series of Sentinel-1 processed granules')
@@ -39,7 +38,8 @@ def main():
                 s3_path = Path(args.srcpath[5:])
                 s3_bucket = str(Path(s3_path.parts[0]))
                 s3_prefix = str(Path(*s3_path.parts[1:]))
-                s3 = boto3.resource('s3')
+                print(f'Listing s3://{s3_bucket}')
+                subprocess.check_call(f'gsutil ls s3://{s3_bucket}', shell=True)
             except:
                 raise Exception("Connection to S3 failed. Use 'aws configure' to configure.")
         elif args.srcpath[0:5] == 'gs://':
