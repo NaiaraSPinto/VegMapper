@@ -82,6 +82,10 @@ def main():
         year, path_frame = year_path_frame.split('_', 1)
         granule_sources = get_granule_sources(hyp3, year_path_frame)
 
+        if not granule_sources:
+            print(f'\nGranules have not been submitted for RTC processing yet.')
+            return
+
         if dst == 's3':
             try:
                 print(f'\n{year_path_frame}: copying processed granules to {args.dstpath}')
@@ -112,6 +116,7 @@ def main():
             for copy_source, expiration_time, _ in granule_sources:
                 print(f"\n{copy_source['Bucket']}/{copy_source['Key']}")
                 print(f'Expiration Time: {expiration_time}')
+
     print('\nDone with everything.')
 
 
