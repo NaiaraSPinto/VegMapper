@@ -45,7 +45,10 @@ def generate_tif_link(filename, dst, layer):
         elif dst == 'gs':
             link = f"/vsizip/vsigs/{path}{granule}"
         elif dst == 'local':
-            link = f"vsizip/{path}{granule}"
+            link = f"/vsizip/{path}{granule}"
+    else:
+        # file doesn't match format we're looking for
+        return None
 
     # build full filename, including name of tif files inside zip archive that we want
     link = f"{link}.zip/{granule}/{granule}_{layer}.tif"
