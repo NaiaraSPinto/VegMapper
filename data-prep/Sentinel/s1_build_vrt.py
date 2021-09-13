@@ -16,6 +16,8 @@ layer_map = {
     'VH': 'VH',
     'INC': 'inc_map',
     'LS': 'ls_map'}
+
+
 """
 Given the name of a .zip file, generates the full link of the corresponding
 .tif file inside the .zip file that we want to build the VRT with in a format
@@ -49,27 +51,15 @@ def generate_tif_link(filename, dst, layer):
             link = f"vsizip/{path}{granule}"
 
     # build full filename, including name of tif files inside zip archive that we want
-    link = f"{link}.zip/{m.granule}/{m.granule}_{layer}.tif"
+    link = f"{link}.zip/{granule}/{granule}_{layer}.tif"
     return link
 
-def build_vrt_and_upload_to_s3(s3, dest_bucket, prefix_str, year, path_frame):
-
-    VV_VRT_filename, VH_VRT_filename, INC_VRT_filename = build_vrt(s3, dest_bucket, prefix_str, year, path_frame)
-
-    VV_VRT_s3_key = os.path.join(prefix_str, year, path_frame, VV_VRT_filename)
-    VH_VRT_s3_key = os.path.join(prefix_str, year, path_frame, VH_VRT_filename)
-    INC_VRT_s3_key = os.path.join(prefix_str, year, path_frame, INC_VRT_filename)
-
-    upload_to_s3(s3, VV_VRT_filename, dest_bucket, VV_VRT_s3_key)
-    upload_to_s3(s3, VH_VRT_filename, dest_bucket, VH_VRT_s3_key)
-    upload_to_s3(s3, INC_VRT_filename, dest_bucket, INC_VRT_s3_key)
-
-    return VV_VRT_filename, VH_VRT_filename, INC_VRT_filename
 
 """
 Blocks the thread until we can confirm that filename exists.
-Used to prevent a race condition in build_vrt.
+Used to prevent a race condition when uploading to cloud storage.
 """
+# TODO: is this still necessary?
 def block_until_file_created(filename, max_attempts=5):
     attempts = 0
 
@@ -83,44 +73,14 @@ def block_until_file_created(filename, max_attempts=5):
     # if we exceed max_attempts and file still not found
     # TODO: Raise FileNotFound Error
     raise RuntimeError("{} not found".format(filename))
-    
-def build_vrt(s3, bucket_str, prefix_str, year, path_frame):
-    bucket_object = s3.Bucket(bucket_str)
 
-    VV_list = []
-    VH_list = []
-    INC_list = []
-
-    folder = os.path.join(prefix_str, year, path_frame)
-    for file in bucket_object.objects.filter(Prefix=folder):
-        if file.key.endswith('.zip'):
-            VV_list.append(generate_tif_full_filename(bucket_str, file.key, "VV"))
-            VH_list.append(generate_tif_full_filename(bucket_str, file.key, "VH"))
-            INC_list.append(generate_tif_full_filename(bucket_str, file.key, "inc_map"))
-
-    # TODO: any other kwargs we're missing? targetAlignedPixels?
-    VV_VRT_filename = f"{year}_{path_frame}_VV.vrt"
-    gdal_build_vrt(VV_VRT_filename, VV_list)
-
-    VH_VRT_filename = f"{year}_{path_frame}_VH.vrt"
-    gdal_build_vrt(VH_VRT_filename, VH_list)
-
-    INC_VRT_filename = f"{year}_{path_frame}_INC.vrt"
-    gdal_build_vrt(INC_VRT_filename, INC_list)
-
-    # prevent race condition where we attempt to upload the files to s3 before gdal creates the vrt
-    block_until_file_created(VV_VRT_filename)
-    block_until_file_created(VH_VRT_filename)
-    block_until_file_created(INC_VRT_filename)
-
-    # returns the keys to the VV and VRT files in S3
-    return VV_VRT_filename, VH_VRT_filename, INC_VRT_filename
 
 def gdal_build_vrt(filename, tif_list):
     cmd = (f'gdalbuildvrt -overwrite '
           f'{filename} {" ".join(tif_list)}')
     subprocess.check_call(cmd, shell=True)
         
+
 def main():
     parser = argparse.ArgumentParser(
         description='build a VRT to contain time-series of Sentinel-1 processed granules')
@@ -183,11 +143,29 @@ def main():
         print(f"No files were found under {args.srcpath}/{year}/{path_frame}. Ensure that the srcpath and year_path_frame provided were correct.")
         sys.exit()
 
+    layer = layer_map[args.layer]
+    tif_list = []
+    for f in zip_list:
+        tif_list.append(generate_tif_link(f, dst, layer))
     
-    # TODO: Build VRT using gdalbuildvrt
-    # For S3, simply use /vsis3/s3_path/year/path_frame/vrt_name as dstfile for gdalbuildvrt. boto3 not needed.
+    if dst == 's3':
+        dstfile = f"/vsis3/{s3_bucket}/{s3_prefix}/{year}/{path_frame}/{year}_{path_frame}_{args.layer}.vrt"
+    else:
+        dstfile = f"{year}_{path_frame}_{args.layer}.vrt"
+    
+    print(f"Building {layer} VRT for year_path_frame {year}_{path_frame}...")
+    gdal_build_vrt(dstfile, tif_list)
+    print(f"Built {dstfile}.")
+
     # For GCS, I got "Fetching OAuth2 access code from auth code failed" error,
     # let's save VRT locally and upload to GCS using gsutil
+    if dst == 'gs':
+        print(f"Uploading {dstfile} to Google Cloud Storage...")
+        dstpath = f"gs://{gs_bucket}{gs_path}/{year}/{path_frame}{year}_{path_frame}_{layer}.vrt"
+        block_until_file_created(dstfile)
+        subprocess.check_call(f'gsutil cp {dstfile} {dstpath}')
+        os.remove(dstfile)
+        print(f"Uploaded to {dstpath}.")
 
 
 if __name__ == '__main__':
