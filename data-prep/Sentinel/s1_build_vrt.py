@@ -2,20 +2,23 @@
 
 import argparse
 import subprocess
+from subprocess import CalledProcessError
 from datetime import datetime
 from pathlib import Path
+import sys
+import re
 
 def main():
     parser = argparse.ArgumentParser(
         description='build a VRT to contain time-series of Sentinel-1 processed granules')
-    parser.add_argument('src', metavar='srcpath', dest='srcpath',
+    parser.add_argument('srcpath', metavar='srcpath',
                         type=str,
                         help=('source path to where processed granules are stored'
                               '(AWS S3 - s3://srcpath, GCS - gs://srcpath, local storage - srcpath)'))
     parser.add_argument('year_path_frame', metavar='year_path_frame',
                         type=str,
                         help='Year_Path_Frame of processed granules (e.g., 2020_171_617)')
-    parser.add_argument('layer', metavar='layer', dest='layer',
+    parser.add_argument('layer', metavar='layer',
                         type=str,
                         choices=['VV', 'VH', 'INC', 'LS'],
                         help=('data layer of processed granule to be included in VRT'
@@ -58,15 +61,34 @@ def main():
         else:
             raise Exception(f'Destination path {args.srcpath} does not exist')
 
-    # TODO: Search srcpath to get a list of all .zip files for year_path_frame
     # These .zip files should be under srcpath/year/path_frame
-    # Check filename using regex: r'^\w{3}_\w{2}_\d{8}T\d{6}_\w{3}_RTC\d{2}_\w{1}_\w{6}_\w{4}.zip'
+    year, path_frame = args.year_path_frame.split('_', 1)
+    try:
+        zip_list = subprocess.check_output(f'gsutil ls {args.srcpath}/{year}/{path_frame}/*.zip', shell=True).decode(sys.stdout.encoding).splitlines()
+    except CalledProcessError as e:
+        # command matched no files
+        print(f"No files were found under {args.srcpath}/{year}/{path_frame}. Ensure that the srcpath and year_path_frames provided were correct.")
+        sys.exit()
+    regex = re.compile(r"""
+                        (?P<dst>s3://|gs://)?                                                       # match the cloud bucket prefix, if it's there (s3:// or gs://)
+                        (?P<path>.*[/\\])?                                                          # match any folder names before the granule name
+                        (?P<granule>\w{3}_\w{2}_\d{8}T\d{6}_\w{3}_RTC\d{2}_\w{1}_\w{6}_\w{4}.zip)   # match the granule name
+                        """, re.VERBOSE)
 
-    # TODO: Concatenate filename with GDAL virtual file system prefix, i.e.,
-    # /vsizip/vsis3/s3_path/year/path_frame/filename or
-    # /vsizip/vsigs/gs_path/year/path_frame/filename or
-    # local_path/year/path_frame/filename
-
+    gdal_links = []
+    for f in zip_list:
+        m = regex.match(f)
+        if m:
+            path = m.group('path')
+            granule = m.group('granule')
+            if dst == 's3':
+                link = f"/vsizip/vsis3/{path}{granule}"
+            elif dst == 'gs':
+                link = f"/vsizip/vsigs/{path}{granule}"
+            elif dst == 'local':
+                link = f"vsizip/{path}{granule}"
+            gdal_links.append(link)
+    
     # TODO: Build VRT using gdalbuildvrt
     # For S3, simply use /vsis3/s3_path/year/path_frame/vrt_name as dstfile for gdalbuildvrt. boto3 not needed.
     # For GCS, I got "Fetching OAuth2 access code from auth code failed" error,
