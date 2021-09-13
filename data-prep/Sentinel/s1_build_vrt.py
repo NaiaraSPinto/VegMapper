@@ -1,14 +1,13 @@
 #!/usr/bin/env python
-
 import argparse
 import subprocess
 from subprocess import CalledProcessError
-from datetime import datetime
 from pathlib import Path
 import sys
 import re
 import os
 import time
+
 
 # map layer passed as argument to corresponding tif suffix
 layer_map = {
@@ -19,12 +18,10 @@ layer_map = {
 
 
 """
-Given the name of a .zip file, generates the full link of the corresponding
-.tif file inside the .zip file that we want to build the VRT with in a format
-that GDAL understands.
+Given the name of a .zip file, generates the full link of the corresponding .tif file
+inside the .zip file that we want to build the VRT with in a format that GDAL understands.
 'dst' should either be 's3', 'gs', or 'local'
 'polarization' should either be 'VV', 'VH', 'inc_map', or 'ls_map'
-
 """
 def generate_tif_link(filename, dst, layer):    
     regex = re.compile(r"""
