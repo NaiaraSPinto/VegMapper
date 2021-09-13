@@ -67,7 +67,7 @@ def main():
         zip_list = subprocess.check_output(f'gsutil ls {args.srcpath}/{year}/{path_frame}/*.zip', shell=True).decode(sys.stdout.encoding).splitlines()
     except CalledProcessError as e:
         # command matched no files
-        print(f"No files were found under {args.srcpath}/{year}/{path_frame}. Ensure that the srcpath and year_path_frames provided were correct.")
+        print(f"No files were found under {args.srcpath}/{year}/{path_frame}. Ensure that the srcpath and year_path_frame provided were correct.")
         sys.exit()
     regex = re.compile(r"""
                         (?P<dst>s3://|gs://)?                                                       # match the cloud bucket prefix, if it's there (s3:// or gs://)
