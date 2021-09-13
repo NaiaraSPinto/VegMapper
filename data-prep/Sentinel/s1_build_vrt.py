@@ -52,26 +52,6 @@ def generate_tif_link(filename, dst, layer):
     return link
 
 
-"""
-Blocks the thread until we can confirm that filename exists.
-Used to prevent a race condition when uploading to cloud storage.
-"""
-# TODO: is this still necessary?
-def block_until_file_created(filename, max_attempts=5):
-    attempts = 0
-
-    while attempts < max_attempts:
-        if os.path.isfile(filename):
-            # exit the function
-            return None
-        attempts += 1
-        time.sleep(5)
-
-    # if we exceed max_attempts and file still not found
-    # TODO: Raise FileNotFound Error
-    raise RuntimeError("{} not found".format(filename))
-
-
 def gdal_build_vrt(filename, tif_list):
     cmd = (f'gdalbuildvrt -overwrite '
           f'{filename} {" ".join(tif_list)}')
@@ -159,7 +139,6 @@ def main():
     if dst == 'gs':
         print(f"Uploading {dstfile} to Google Cloud Storage...")
         dstpath = f"gs://{gs_bucket}{gs_path}/{year}/{path_frame}{year}_{path_frame}_{layer}.vrt"
-        block_until_file_created(dstfile)
         subprocess.check_call(f'gsutil cp {dstfile} {dstpath}')
         os.remove(dstfile)
         print(f"Uploaded to {dstpath}.")
