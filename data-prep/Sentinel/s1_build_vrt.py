@@ -7,6 +7,7 @@ import sys
 import re
 import os
 import time
+from urllib.parse import urlparse
 
 
 # map layer passed as argument to corresponding tif suffix
@@ -20,14 +21,14 @@ layer_map = {
 """
 Given the name of a .zip file, generates the full link of the corresponding .tif file
 inside the .zip file that we want to build the VRT with in a format that GDAL understands.
-'dst' should either be 's3', 'gs', or 'local'
+'src' should either be 's3', 'gs', or 'local'
 'polarization' should either be 'VV', 'VH', 'inc_map', or 'ls_map'
 """
-def generate_tif_link(filename, dst, layer):    
+def generate_tif_link(filename, src, layer):
     regex = re.compile(r"""
-                       (?P<dst>s3://|gs://)?    # match the cloud bucket prefix, if it's there (s3:// or gs://)
-                       (?P<path>.*[/\\])?       # match any folder names before the granule name 
-                       # match the granule name 
+                       (?P<src>s3://|gs://)?    # match the cloud bucket prefix, if it's there (s3:// or gs://)
+                       (?P<path>.*[/\\])?       # match any folder names before the granule name
+                       # match the granule name
                        (?P<granule>\w{3}_\w{2}_\d{8}T\d{6}_\w{3}_RTC\d{2}_\w{1}_\w{6}_\w{4}(?=.zip))
                        """, re.VERBOSE)
 
@@ -40,11 +41,11 @@ def generate_tif_link(filename, dst, layer):
         if not path:
             path = ""
         granule = m.group('granule')
-        if dst == 's3':
+        if src == 's3':
             link = f"/vsizip/vsis3/{path}{granule}"
-        elif dst == 'gs':
+        elif src == 'gs':
             link = f"/vsizip/vsigs/{path}{granule}"
-        elif dst == 'local':
+        elif src == 'local':
             link = f"/vsizip/{path}{granule}"
     else:
         # file doesn't match format we're looking for
@@ -59,7 +60,7 @@ def gdal_build_vrt(filename, tif_list):
     cmd = (f'gdalbuildvrt -overwrite '
           f'{filename} {" ".join(tif_list)}')
     subprocess.check_call(cmd, shell=True)
-        
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -88,60 +89,52 @@ def main():
 
     # Check and identify srcpath
     if args.srcpath:
-        if args.srcpath[0:5] == 's3://':
+        u = urlparse(args.srcpath)
+        if u.scheme == 's3' or u.scheme == 'gs':
+            src = u.scheme
+            bucket = u.netloc
+            prefix = u.path.strip()
+            srcpath = f'{src}://{bucket}/{prefix}'
             try:
-                dst = 's3'
-                s3_path = Path(args.srcpath[5:])
-                s3_bucket = str(Path(s3_path.parts[0]))
-                s3_prefix = str(Path(*s3_path.parts[1:]))
-                print(f'Listing s3://{s3_bucket}')
-                subprocess.check_call(f'gsutil ls s3://{s3_bucket}', shell=True)
+                print(f'Listing {src}://{bucket}')
+                subprocess.check_call(f'gsutil ls {src}://{bucket}', shell=True)
             except:
-                raise Exception("Connection to S3 failed. Use 'aws configure' to configure.")
-        elif args.srcpath[0:5] == 'gs://':
-            try:
-                dst = 'gs'
-                gs_path = Path(args.srcpath[5:])
-                gs_bucket = Path(gs_path.parts[0])
-                gs_prefix = Path(*gs_path.parts[1:])
-                print(f'Listing gs://{gs_bucket}')
-                subprocess.check_call(f'gsutil ls gs://{gs_bucket}', shell=True)
-            except:
-                raise Exception("Listing gs://{gs_bucket} failed. Use 'gsutil config' to configure.")
+                raise Exception("Listing {src}://{bucket} failed. Use 'aws configure' or 'gsutil config' to configure.")
         elif Path(args.srcpath).exists():
-            dst = 'local'
-            local_path = Path(args.srcpath)
+            src = 'local'
+            srcpath = Path(args.srcpath)
         else:
             raise Exception(f'Destination path {args.srcpath} does not exist')
 
     # These .zip files should be under srcpath/year/path_frame
     year, path_frame = args.year_path_frame.split('_', 1)
-    try:
-        zip_list = subprocess.check_output(f'gsutil ls {args.srcpath}/{year}/{path_frame}/*.zip', shell=True).decode(sys.stdout.encoding).splitlines()
-    except CalledProcessError as e:
-        # command matched no files
-        print(f"No files were found under {args.srcpath}/{year}/{path_frame}. Ensure that the srcpath and year_path_frame provided were correct.")
-        sys.exit()
+    if src == 'local':
+        ls_cmd = f'ls {srcpath}/{year}/{path_frame}/*.zip'
+    else:
+        ls_cmd = f'gsutil ls {src}://{bucket}/{prefix}/{year}/{path_frame}/*.zip'
+    zip_list = subprocess.check_output(ls_cmd, shell=True).decode(sys.stdout.encoding).splitlines()
+    if not zip_list:
+        raise Exception(f'No files were found under {srcpath}/{year}/{path_frame}. Ensure that the srcpath and year_path_frame provided were correct.')
 
     layer = layer_map[args.layer]
     tif_list = []
     for f in zip_list:
-        tif_list.append(generate_tif_link(f, dst, layer))
-    
-    if dst == 's3':
-        dstfile = f"/vsis3/{s3_bucket}/{s3_prefix}/{year}/{path_frame}/{year}_{path_frame}_{args.layer}.vrt"
+        tif_list.append(generate_tif_link(f, src, layer))
+
+    if src == 's3':
+        dstfile = f'/vsis3/{bucket}/{prefix}/{year}/{path_frame}/{year}_{path_frame}_{layer}.vrt'
     else:
-        dstfile = f"{year}_{path_frame}_{args.layer}.vrt"
-    
+        dstfile = f'{year}_{path_frame}_{layer}.vrt'
+
     print(f"Building {layer} VRT for year_path_frame {year}_{path_frame}...")
     gdal_build_vrt(dstfile, tif_list)
     print(f"Built {dstfile}.")
 
     # For GCS, I got "Fetching OAuth2 access code from auth code failed" error,
     # let's save VRT locally and upload to GCS using gsutil
-    if dst == 'gs':
+    if src == 'gs':
         print(f"Uploading {dstfile} to Google Cloud Storage...")
-        dstpath = f"gs://{gs_bucket}{gs_path}/{year}/{path_frame}{year}_{path_frame}_{layer}.vrt"
+        dstpath = f'{srcpath}/{year}/{path_frame}{year}_{path_frame}_{layer}.vrt'
         subprocess.check_call(f'gsutil cp {dstfile} {dstpath}')
         os.remove(dstfile)
         print(f"Uploaded to {dstpath}.")
