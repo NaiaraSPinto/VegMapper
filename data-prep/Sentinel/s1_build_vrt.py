@@ -1,66 +1,24 @@
 #!/usr/bin/env python
+
 import argparse
-import subprocess
-from subprocess import CalledProcessError
-from pathlib import Path
-import sys
-import re
 import os
-import time
+import re
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
 from urllib.parse import urlparse
 
+# RTC zip filename pattern
+rtc_zip_pattern = re.compile(r'^\w{3}_\w{2}_\d{8}T\d{6}_\w{3}_RTC\d{2}_\w{1}_\w{6}_\w{4}.zip$')
 
-# map layer passed as argument to corresponding tif suffix
-layer_map = {
+# GeoTIFF suffix of corresponding data layer in the processed granule zip file
+layer_suffix = {
     'VV': 'VV',
     'VH': 'VH',
     'INC': 'inc_map',
-    'LS': 'ls_map'}
-
-
-"""
-Given the name of a .zip file, generates the full link of the corresponding .tif file
-inside the .zip file that we want to build the VRT with in a format that GDAL understands.
-'src' should either be 's3', 'gs', or 'local'
-'polarization' should either be 'VV', 'VH', 'inc_map', or 'ls_map'
-"""
-def generate_tif_link(filename, src, layer):
-    regex = re.compile(r"""
-                       (?P<src>s3://|gs://)?    # match the cloud bucket prefix, if it's there (s3:// or gs://)
-                       (?P<path>.*[/\\])?       # match any folder names before the granule name
-                       # match the granule name
-                       (?P<granule>\w{3}_\w{2}_\d{8}T\d{6}_\w{3}_RTC\d{2}_\w{1}_\w{6}_\w{4}(?=.zip))
-                       """, re.VERBOSE)
-
-    # 'vsizip' tells GDAL that we are working with a .zip file
-    # 'vsis3' tells GDAL that the file is hosted in an S3 bucket
-    # 'vsigs' tells GDAL that the file is hosted in a GCS bucket
-    m = regex.match(filename)
-    if m:
-        path = m.group('path')
-        if not path:
-            path = ""
-        granule = m.group('granule')
-        if src == 's3':
-            link = f"/vsizip/vsis3/{path}{granule}"
-        elif src == 'gs':
-            link = f"/vsizip/vsigs/{path}{granule}"
-        elif src == 'local':
-            link = f"/vsizip/{path}{granule}"
-    else:
-        # file doesn't match format we're looking for
-        return None
-
-    # build full filename, including name of tif files inside zip archive that we want
-    link = f"{link}.zip/{granule}/{granule}_{layer}.tif"
-    return link
-
-
-def gdal_build_vrt(filename, tif_list):
-    cmd = (f'gdalbuildvrt -overwrite '
-          f'{filename} {" ".join(tif_list)}')
-    subprocess.check_call(cmd, shell=True)
-
+    'LS': 'ls_map',
+}
 
 def main():
     parser = argparse.ArgumentParser(
@@ -88,56 +46,69 @@ def main():
     args = parser.parse_args()
 
     # Check and identify srcpath
-    if args.srcpath:
-        u = urlparse(args.srcpath)
-        if u.scheme == 's3' or u.scheme == 'gs':
-            src = u.scheme
-            bucket = u.netloc
-            prefix = u.path.strip()
-            srcpath = f'{src}://{bucket}/{prefix}'
-            try:
-                print(f'Listing {src}://{bucket}')
-                subprocess.check_call(f'gsutil ls {src}://{bucket}', shell=True)
-            except:
-                raise Exception("Listing {src}://{bucket} failed. Use 'aws configure' or 'gsutil config' to configure.")
-        elif Path(args.srcpath).exists():
-            src = 'local'
-            srcpath = Path(args.srcpath)
-        else:
-            raise Exception(f'Destination path {args.srcpath} does not exist')
-
-    # These .zip files should be under srcpath/year/path_frame
-    year, path_frame = args.year_path_frame.split('_', 1)
-    if src == 'local':
-        ls_cmd = f'ls {srcpath}/{year}/{path_frame}/*.zip'
+    u = urlparse(args.srcpath)
+    if u.scheme == 's3' or u.scheme == 'gs':
+        src = u.scheme
+        bucket = u.netloc
+        prefix = u.path.strip('/')
+        srcpath = f'{src}://{bucket}/{prefix}'
+        print(f'Listing {src}://{bucket}/{prefix}')
+        subprocess.check_call(f'gsutil ls {src}://{bucket}/{prefix}', shell=True)
     else:
-        ls_cmd = f'gsutil ls {src}://{bucket}/{prefix}/{year}/{path_frame}/*.zip'
+        src = 'local'
+        srcpath = Path(args.srcpath)
+        if not srcpath.exists():
+            raise Exception(f'Source path {args.srcpath} does not exist')
+
+    layer = layer_suffix[args.layer]
+
+    # The zip files should be under srcpath/year/path_frame
+    year, path_frame = args.year_path_frame.split('_', 1)
+    ls_cmd = f'ls {srcpath}/{year}/{path_frame}/*.zip'
+    if src == 's3' or src == 'gs':
+        ls_cmd = 'gsutil ' + ls_cmd
     zip_list = subprocess.check_output(ls_cmd, shell=True).decode(sys.stdout.encoding).splitlines()
     if not zip_list:
-        raise Exception(f'No files were found under {srcpath}/{year}/{path_frame}. Ensure that the srcpath and year_path_frame provided were correct.')
+        raise Exception(f'No zip files were found under {srcpath}/{year}/{path_frame}. Ensure that the srcpath and year_path_frame provided were correct.')
 
-    layer = layer_map[args.layer]
     tif_list = []
-    for f in zip_list:
-        tif_list.append(generate_tif_link(f, src, layer))
+    for zip_path in zip_list:
+        zip_name = Path(zip_path).name
+        # Check zip files to see if it's really a RTC zip file
+        if not rtc_zip_pattern.match(zip_name):
+            continue
+        acquisition_time = datetime.strptime(zip_name.split('_')[2], '%Y%m%dT%H%M%S')
+        # Skip the ones acquired outside [m1, m2]
+        if (acquisition_time.month < args.m1) | (acquisition_time.month > args.m2):
+            continue
+        # Get vsi paths
+        granule = Path(zip_path).stem
+        if src == 's3' or src == 'gs':
+            vsi_path = f'/vsizip/vsi{src}/{bucket}/{prefix}/{year}/{path_frame}/{zip_name}/{granule}/{granule}_{layer}.tif'
+        else:
+            vsi_path = f'/vsizip/{srcpath}/{year}/{path_frame}/{zip_name}/{granule}/{granule}_{layer}.tif'
+        tif_list.append(vsi_path)
+    if not tif_list:
+        raise Exception(f'No RTC zip files were found under {srcpath}/{year}/{path_frame}. Ensure that the srcpath and year_path_frame provided were correct.')
 
     if src == 's3':
-        dstfile = f'/vsis3/{bucket}/{prefix}/{year}/{path_frame}/{year}_{path_frame}_{layer}.vrt'
+        vrt = f'/vsis3/{bucket}/{prefix}/{year}/{path_frame}/{year}_{path_frame}_{args.layer}.vrt'
     else:
-        dstfile = f'{year}_{path_frame}_{layer}.vrt'
+        vrt = Path(f'{year}_{path_frame}_{args.layer}.vrt')
 
-    print(f"Building {layer} VRT for year_path_frame {year}_{path_frame}...")
-    gdal_build_vrt(dstfile, tif_list)
-    print(f"Built {dstfile}.")
+    # Build VRT
+    print(f'Building {args.layer} VRT for year_path_frame {year}_{path_frame} ...')
+    cmd = f'gdalbuildvrt -overwrite {vrt} {" ".join(tif_list)}'
+    subprocess.check_call(cmd, shell=True)
 
-    # For GCS, I got "Fetching OAuth2 access code from auth code failed" error,
-    # let's save VRT locally and upload to GCS using gsutil
     if src == 'gs':
-        print(f"Uploading {dstfile} to Google Cloud Storage...")
-        dstpath = f'{srcpath}/{year}/{path_frame}{year}_{path_frame}_{layer}.vrt'
-        subprocess.check_call(f'gsutil cp {dstfile} {dstpath}')
-        os.remove(dstfile)
-        print(f"Uploaded to {dstpath}.")
+        # RHC: when using /vsigs to make gdalbuildvrt directly output VRT, I got
+        # "Fetching OAuth2 access code from auth code failed" error. Let's save
+        # VRT locally and upload to GCS using gsutil for now.
+        subprocess.check_call(f'gsutil cp {vrt} {srcpath}/{vrt}')
+        vrt.unlink()
+    elif src == 'local':
+        vrt.rename(f'{srcpath}/{year}/{path_frame}/{vrt.name}')
 
 
 if __name__ == '__main__':
