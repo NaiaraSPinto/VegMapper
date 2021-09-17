@@ -47,14 +47,14 @@ def main():
     # Check and identify srcpath
     u = urlparse(args.srcpath)
     if u.scheme == 's3' or u.scheme == 'gs':
-        src = u.scheme
+        srcloc = u.scheme
         bucket = u.netloc
         prefix = u.path.strip('/')
-        srcpath = f'{src}://{bucket}/{prefix}'
-        print(f'Listing {src}://{bucket}/{prefix}')
-        subprocess.check_call(f'gsutil ls {src}://{bucket}/{prefix}', shell=True)
+        srcpath = f'{srcloc}://{bucket}/{prefix}'
+        print(f'Listing {srcloc}://{bucket}/{prefix}')
+        subprocess.check_call(f'gsutil ls {srcloc}://{bucket}/{prefix}', shell=True)
     else:
-        src = 'local'
+        srcloc = 'local'
         srcpath = Path(args.srcpath)
         if not srcpath.exists():
             raise Exception(f'Source path {args.srcpath} does not exist')
@@ -64,7 +64,7 @@ def main():
     # The zip files should be under srcpath/year/path_frame
     year, path_frame = args.year_path_frame.split('_', 1)
     ls_cmd = f'ls {srcpath}/{year}/{path_frame}/*.zip'
-    if src == 's3' or src == 'gs':
+    if srcloc == 's3' or srcloc == 'gs':
         ls_cmd = 'gsutil ' + ls_cmd
     zip_list = subprocess.check_output(ls_cmd, shell=True).decode(sys.stdout.encoding).splitlines()
     if not zip_list:
@@ -82,15 +82,15 @@ def main():
             continue
         # Get vsi paths
         granule = Path(zip_path).stem
-        if src == 's3' or src == 'gs':
-            vsi_path = f'/vsizip/vsi{src}/{bucket}/{prefix}/{year}/{path_frame}/{zip_name}/{granule}/{granule}_{layer}.tif'
+        if srcloc == 's3' or srcloc == 'gs':
+            vsi_path = f'/vsizip/vsi{srcloc}/{bucket}/{prefix}/{year}/{path_frame}/{zip_name}/{granule}/{granule}_{layer}.tif'
         else:
             vsi_path = f'/vsizip/{srcpath}/{year}/{path_frame}/{zip_name}/{granule}/{granule}_{layer}.tif'
         tif_list.append(vsi_path)
     if not tif_list:
         raise Exception(f'No RTC zip files were found under {srcpath}/{year}/{path_frame}. Ensure that the srcpath and year_path_frame provided were correct.')
 
-    if src == 's3':
+    if srcloc == 's3':
         vrt = f'/vsis3/{bucket}/{prefix}/{year}/{path_frame}/{year}_{path_frame}_{args.layer}.vrt'
     else:
         vrt = Path(f'{year}_{path_frame}_{args.layer}.vrt')
@@ -100,13 +100,13 @@ def main():
     cmd = f'gdalbuildvrt -overwrite {vrt} {" ".join(tif_list)}'
     subprocess.check_call(cmd, shell=True)
 
-    if src == 'gs':
+    if srcloc == 'gs':
         # RHC: when using /vsigs to make gdalbuildvrt directly output VRT, I got
         # "Fetching OAuth2 access code from auth code failed" error. Let's save
         # VRT locally and upload to GCS using gsutil for now.
         subprocess.check_call(f'gsutil cp {vrt} {srcpath}/{vrt}')
         vrt.unlink()
-    elif src == 'local':
+    elif srcloc == 'local':
         vrt.rename(f'{srcpath}/{year}/{path_frame}/{vrt.name}')
 
 
