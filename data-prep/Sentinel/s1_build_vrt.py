@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-import os
 import re
 import subprocess
 import sys
@@ -97,7 +96,7 @@ def main():
         vrt = Path(f'{year}_{path_frame}_{args.layer}.vrt')
 
     # Build VRT
-    print(f'Building {args.layer} VRT for year_path_frame {year}_{path_frame} ...')
+    print(f'\nBuilding {args.layer} VRT for year_path_frame {year}_{path_frame} ...')
     cmd = f'gdalbuildvrt -overwrite {vrt} {" ".join(tif_list)}'
     subprocess.check_call(cmd, shell=True)
 

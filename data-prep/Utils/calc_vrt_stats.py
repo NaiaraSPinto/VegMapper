@@ -75,7 +75,7 @@ if u.scheme == 's3':
 else:
     dst_tif = dst_vrt.with_suffix('.tif')
 
-print(f'Calculating {args.stat} for {args.vrtpath} ...')
+print(f'\nCalculating {args.stat} for {args.vrtpath} ...')
 cmd = (f'gdal_translate '
        f'-co COMPRESS=LZW '
        f'--config GDAL_VRT_ENABLE_PYTHON YES '
