@@ -4,4 +4,5 @@ Sentinel/s1_proc.py
 Sentinel/s1_remove_edges.py
 Sentinel/s1_submit_hyp3_jobs.py
 Utils/calc_vrt_stats.py
+Utils/prep_tiles.py
 Utils/remove_edges.py
