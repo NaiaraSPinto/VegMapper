@@ -61,7 +61,7 @@ def s1_proc(srcloc, srcpath, year, m1, m2, path_frame=None):
                 data = dset.read(1)
                 data[mask == 0] = dset.nodata
                 dset.write(data, 1)
-        print('Done processing {year}_{path_frame}.')
+        print(f'Done processing {year}_{path_frame}.')
 
 
 def main():
