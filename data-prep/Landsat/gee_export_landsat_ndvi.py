@@ -24,68 +24,78 @@ def addNDVI(image):
     return image.addBands(ndvi)
 
 
-res = 30
+def export_landsat_ndvi(sitename, tiles, res, year):
+    gdf_tiles = gpd.read_file(tiles)
+    epsg = gdf_tiles.crs.to_epsg()
+    gdf_wgs84 = gdf_tiles.to_crs('epsg:4326')
 
-parser = argparse.ArgumentParser(add_help=False)
-parser.add_argument('state', help='state name')
-parser.add_argument('year', type=int, help='year (1900 - 2100)')
-parser.add_argument('-h', '--help', action='help', help='submit GEE processing for Landsat NDVI')
-args = parser.parse_args()
+    ee.Initialize()
 
-state = args.state.lower()
-year = args.year
+    # Export data for each tile
+    task_list = []
+    for i in gdf_tiles.index:
+        h = gdf_tiles['h'][i]
+        v = gdf_tiles['v'][i]
+        m = gdf_tiles['mask'][i]
+        g = gdf_tiles['geometry'][i]
+        xmin = g.bounds[0]
+        ymin = g.bounds[1]
+        xmax = g.bounds[2]
+        ymax = g.bounds[3]
+        xdim = int((xmax - xmin) / res)
+        ydim = int((ymax - ymin) / res)
 
-if year < 1900 or year > 2100:
-    raise Exception('year must be a 4-digit number between 1900 and 2100')
+        # Native crsTransform of Landsat data (pixel center coordinates are multiples of res)
+        ct_0 = [res, 0, xmin-res/2, 0, -res, ymax+res/2]
 
-print(f'state: {state}')
-print(f'year: {year}')
+        # Preferred crsTransform (pixel corner coordinates are multiples of res)
+        ct_1 = [res, 0, xmin, 0, -res, ymax]
 
-gdf_tiles = gpd.read_file(f'../AOI/{state}/{state}_tiles.geojson')
-epsg = gdf_tiles.crs.to_epsg()
-gdf_wgs84 = gdf_tiles.to_crs('epsg:4326')
+        if m == 1:
+            # Get cloud-masked SR median
+            tile = ee.Geometry.Rectangle(gdf_wgs84['geometry'][i].bounds)
+            sr = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterDate(f'{year}-01-01', f'{year}-12-31').map(maskL8sr).filterBounds(tile).median()
 
-ee.Initialize()
+            # Set crs and crsTransform to the native ones and use bilinear interpolation when exported
+            ndvi = addNDVI(sr).select('NDVI').reproject(**{'crs': f'EPSG:{epsg}', 'crsTransform': ct_0}).resample('bilinear')
 
-# Export data for each tile
-task_list = []
-for i in gdf_tiles.index:
-    h = gdf_tiles['h'][i]
-    v = gdf_tiles['v'][i]
-    m = gdf_tiles['mask'][i]
-    g = gdf_tiles['geometry'][i]
-    xmin = g.bounds[0]
-    ymin = g.bounds[1]
-    xmax = g.bounds[2]
-    ymax = g.bounds[3]
-    xdim = int((xmax - xmin) / res)
-    ydim = int((ymax - ymin) / res)
+            # Export data to Google Drive
+            task = ee.batch.Export.image.toDrive(image=ndvi,
+                                                description=f'landsat_ndvi_{sitename}_{year}_h{h}v{v}',
+                                                dimensions=f'{xdim}x{ydim}',
+                                                maxPixels=1e9,
+                                                crs=f'EPSG:{epsg}',
+                                                crsTransform=ct_1
+                                                )
+            task.start()
+            task_list.append(task)
 
-    # Native crsTransform of Landsat data (pixel center coordinates are multiples of res)
-    ct_0 = [res, 0, xmin-res/2, 0, -res, ymax+res/2]
+            print(f'#{i+1}: h{h}v{v} started')
+        else:
+            print(f'#{i+1}: h{h}v{v} skipped')
 
-    # Preferred crsTransform (pixel corner coordinates are multiples of res)
-    ct_1 = [res, 0, xmin, 0, -res, ymax]
 
-    if m == 1:
-        # Get cloud-masked SR median
-        tile = ee.Geometry.Rectangle(gdf_wgs84['geometry'][i].bounds)
-        sr = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterDate(f'{year}-01-01', f'{year}-12-31').map(maskL8sr).filterBounds(tile).median()
+def main():
+    parser = argparse.ArgumentParser(
+        description='submit GEE processing for Landsat NDVI'
+    )
+    parser.add_argument('sitename', metavar='sitename',
+                        type=str,
+                        help='site name')
+    parser.add_argument('tiles', metavar='tiles',
+                        type=str,
+                        help=('shp/geojson file that contains tiles onto which '
+                              'the output raster will be resampled'))
+    parser.add_argument('res', metavar='res',
+                        type=int,
+                        help='resolution')
+    parser.add_argument('year', metavar='year',
+                        type=int,
+                        help='year of dataset')
+    args = parser.parse_args()
 
-        # Set crs and crsTransform to the native ones and use bilinear interpolation when exported
-        ndvi = addNDVI(sr).select('NDVI').reproject(**{'crs': f'EPSG:{epsg}', 'crsTransform': ct_0}).resample('bilinear')
+    export_landsat_ndvi(args.sitename, args.tiles, args.res, args.year)
 
-        # Export data to Google Drive
-        task = ee.batch.Export.image.toDrive(image=ndvi,
-                                             description=f'landsat_ndvi_{state}_{year}_h{h}v{v}',
-                                             dimensions=f'{xdim}x{ydim}',
-                                             maxPixels=1e9,
-                                             crs=f'EPSG:{epsg}',
-                                             crsTransform=ct_1
-                                             )
-        task.start()
-        task_list.append(task)
 
-        print(f'#{i+1}: h{h}v{v} started')
-    else:
-        print(f'#{i+1}: h{h}v{v} skipped')
+if __name__ == '__main__':
+    main()
