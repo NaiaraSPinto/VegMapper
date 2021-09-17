@@ -48,12 +48,13 @@ def s1_proc(srcloc, srcpath, year, m1, m2, path_frame=None):
         if srcloc == 's3' or srcloc == 'gs':
             srcpath = srcpath.replace(f'{srcloc}://', f'/vsi{srcloc}/')
         vv = f'{srcpath}/{year}/{path_frame}/{year}_{path_frame}_VV_mean.tif'
+        vv_ex = f'{srcpath}/{year}/{path_frame}/{year}_{path_frame}_VV_mean_ex.tif'
         ls = f'{srcpath}/{year}/{path_frame}/{year}_{path_frame}_LS_mean.tif'
-        subprocess.check_call((f'remove_edges.py {vv} {vv} '
+        subprocess.check_call((f'remove_edges.py {vv} {vv_ex} '
                                f'--maskfile {ls} '
                                f'--lr_only --edge_depth 200'),
                                shell=True)
-        with rasterio.open(vv) as dset:
+        with rasterio.open(vv_ex) as dset:
             mask = dset.read_masks(1)
         for layer in ['VH', 'INC']:
             tif = f'{srcpath}/{year}/{path_frame}/{year}_{path_frame}_{layer}_mean.tif'
