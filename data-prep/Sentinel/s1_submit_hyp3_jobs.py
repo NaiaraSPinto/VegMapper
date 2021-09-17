@@ -1,17 +1,18 @@
+#!/usr/bin/env python
+
 import argparse
 import getpass
-import os
 import subprocess
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 import boto3
-import geopandas as gpd
-import pandas as pd
 from hyp3_sdk import HyP3
 
-# TODO: Use global variables for things like s3, bucket_name?
+from s1_metadata_summary import generate_granules_group_dict
+
 supported_metadata_formats = ['.csv', '.geojson']
 today = datetime.now(timezone.utc)
 
@@ -37,34 +38,19 @@ def main():
 
     # Check and identify dstpath
     if args.dstpath:
-        if args.dstpath[0:5] == 's3://':
-            try:
-                dst = 's3'
-                s3_path = Path(args.dstpath[5:])
-                s3_bucket = str(Path(s3_path.parts[0]))
-                s3_prefix = str(Path(*s3_path.parts[1:]))
-                s3 = boto3.resource('s3')
-            except:
-                raise Exception("Connection to S3 failed. Use 'aws configure' to configure.")
-        elif args.dstpath[0:5] == 'gs://':
-            try:
-                dst = 'gs'
-                gs_path = Path(args.dstpath[5:])
-                gs_bucket = Path(gs_path.parts[0])
-                gs_prefix = Path(*gs_path.parts[1:])
-                print(f'Listing gs://{gs_bucket}')
-                subprocess.check_call(f'gsutil ls gs://{gs_bucket}', shell=True)
-            except:
-                raise Exception("Listing gs://{gs_bucket} failed. Use 'gsutil config' to configure.")
-        elif Path(args.dstpath).exists():
-            dst = 'local'
-            local_path = Path(args.dstpath)
+        u = urlparse(args.dstpath)
+        if u.scheme == 's3' or u.scheme == 'gs':
+            dstloc = u.scheme
+            bucket = u.netloc
+            prefix = u.path.strip('/')
+            dstpath = f'{dstloc}://{bucket}/{prefix}'
+            print(f'Listing {dstloc}://{bucket}/{prefix}')
+            subprocess.check_call(f'gsutil ls {dstloc}://{bucket}/{prefix}', shell=True)
         else:
-            raise Exception(f'Destination path {args.dstpath} does not exist')
-    else:
-        dst = None
-        print(f'Destination path for processed granules not provided. '
-              f'The download links will be listed at the end.')
+            dstloc = 'local'
+            dstpath = Path(args.dstpath)
+            if not dstpath.exists():
+                raise Exception(f'Destination path {args.dstpath} does not exist')
 
     # Get Earthdata credentials and authenticate
     earthdata_username = input('\nEnter Earthdata Username: ')
@@ -82,73 +68,43 @@ def main():
         year, path_frame = year_path_frame.split('_', 1)
         granule_sources = get_granule_sources(hyp3, year_path_frame)
 
-        if dst == 's3':
+        if not granule_sources:
+            print(f'\nGranules have not been submitted for RTC processing yet.')
+            return
+
+        if dstloc == 's3':
             try:
+                s3 = boto3.resource('s3')
                 print(f'\n{year_path_frame}: copying processed granules to {args.dstpath}')
-                copy_granules_to_s3(s3, s3_bucket, s3_prefix, year, path_frame, granule_sources)
+                copy_granules_to_s3(s3, bucket, prefix, year, path_frame, granule_sources)
                 print(f'{year_path_frame}: DONE copying processed granules to {args.dstpath}')
             except Exception as e:
                 print(f'{year_path_frame}: There was an error when copying processed granules from ASF S3 bucket to {args.dstpath}. Continuing to the next granule ...')
                 traceback.print_exc()
-        elif dst == 'gs':
+        elif dstloc == 'gs':
             try:
                 print(f'\n{year_path_frame}: copying processed granules to {args.dstpath}')
-                copy_granules_to_gs(gs_bucket, gs_prefix, year, path_frame, granule_sources)
+                copy_granules_to_gs(bucket, prefix, year, path_frame, granule_sources)
                 print(f'{year_path_frame}: DONE copying processed granules to {args.dstpath}')
             except Exception as e:
                 print(f'{year_path_frame}: There was an error when copying processed granules from ASF S3 bucket to {args.dstpath}. Continuing to the next granule ...')
                 traceback.print_exc()
-        elif dst == 'local':
+        elif dstloc == 'local':
             try:
                 print(f'\n{year_path_frame}: downloading processed granules to {args.dstpath}')
-                download_granules(local_path, year, path_frame, granule_sources)
+                download_granules(dstpath, year, path_frame, granule_sources)
                 print(f'{year_path_frame}: DONE downloading processed granules to {args.dstpath}')
             except Exception as e:
                 print(f'{year_path_frame}: There was an error when downloaing processed granules from ASF S3 bucket to {args.dstpath}. Continuing to the next granule ...')
                 traceback.print_exc()
-            
+
         else:
             print(f'\nYour processed granules for year_path_frame {year_path_frame} are available here:')
             for copy_source, expiration_time, _ in granule_sources:
                 print(f"\n{copy_source['Bucket']}/{copy_source['Key']}")
                 print(f'Expiration Time: {expiration_time}')
+
     print('\nDone with everything.')
-
-
-def generate_granules_group_dict(metadata):
-    """
-    Return the granules dictionary
-    """
-    if metadata.suffix == '.csv':
-        granules_df = pd.read_csv(metadata)
-        col_date = 'Acquisition Date'
-        col_path = 'Path Number'
-        col_frame = 'Frame Number'
-        col_granule = 'Granule Name'
-    elif metadata.suffix == '.geojson':
-        granules_df = gpd.read_file(metadata)
-        col_date = 'stopTime'
-        col_path = 'pathNumber'
-        col_frame = 'frameNumber'
-        col_granule = 'sceneName'
-    else:
-        raise Exception(f'Metadata file format ({metadata.suffix}) not supported')
-
-    granules_df['Year'] = granules_df[col_date].apply(lambda x: x.split('-')[0])
-    granules_df = granules_df.filter([col_granule, 'Year', col_path, col_frame])
-    granules_df['year_path_frame'] = granules_df.apply(lambda row: f"{row['Year']}_{row[col_path]}_{row[col_frame]}", axis=1)
-
-    granules_groups = granules_df.groupby(by=['year_path_frame'])[col_granule]
-
-    # Create a dictionary for granule groups
-    # Key: year_path_frame
-    # Value: list of granule names
-    granules_group_dict = {
-        key : granules_groups.get_group(x).to_list()
-        for key, x in zip(granules_groups.indices, granules_groups.groups)
-    }
-
-    return granules_group_dict
 
 
 def submit_granules(hyp3, granules_group_dict):
@@ -234,7 +190,7 @@ def download_granules(dst_path, year, path_frame, granule_sources):
             dst_dir.mkdir(parents=True)
         if not today > expiration_time:
             try:
-                subprocess.check_call(f'wget -P {dst_dir} {url}', shell=True)
+                subprocess.check_call(f'wget -c -P {dst_dir} {url}', shell=True)
             except Exception as e:
                 print(f'\nError downloading processed granule to {dst_dir}. Traceback:')
                 print(traceback.print_exc())
@@ -245,4 +201,3 @@ def download_granules(dst_path, year, path_frame, granule_sources):
 
 if __name__ == '__main__':
     main()
-
