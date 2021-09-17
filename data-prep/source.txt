@@ -1,4 +1,7 @@
+Sentinel/s1_build_vrt.py
 Sentinel/s1_metadata_summary.py
+Sentinel/s1_proc.py
 Sentinel/s1_remove_edges.py
 Sentinel/s1_submit_hyp3_jobs.py
+Utils/calc_vrt_stats.py
 Utils/remove_edges.py
