@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse
 
 import ee
@@ -94,6 +96,7 @@ def main():
                         help='year of dataset')
     args = parser.parse_args()
 
+    print(f'\nSubmitting GEE jobs for exporting Landsat NDVI ...')
     export_landsat_ndvi(args.sitename, args.tiles, args.res, args.year)
 
 
