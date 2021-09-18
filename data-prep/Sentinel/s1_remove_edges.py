@@ -62,8 +62,9 @@ def main():
         year = Path(u.path).parent.name
         path_frame = Path(u.path).name
         path_frame_dir = f'{srcloc}://{bucket}/{prefix}'
-        print(f'Listing {srcloc}://{bucket}/{prefix}')
-        subprocess.check_call(f'gsutil ls {srcloc}://{bucket}/{prefix}', shell=True)
+        subprocess.check_call(f'gsutil ls {srcloc}://{bucket}/{prefix}',
+                              stdout=subprocess.DEVNULL,
+                              shell=True)
     else:
         srcloc = 'local'
         path_frame_dir = Path(u.path)

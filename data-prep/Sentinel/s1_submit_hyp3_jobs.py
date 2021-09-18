@@ -44,8 +44,9 @@ def main():
             bucket = u.netloc
             prefix = u.path.strip('/')
             dstpath = f'{dstloc}://{bucket}/{prefix}'
-            print(f'Listing {dstloc}://{bucket}/{prefix}')
-            subprocess.check_call(f'gsutil ls {dstloc}://{bucket}/{prefix}', shell=True)
+            subprocess.check_call(f'gsutil ls {dstloc}://{bucket}/{prefix}',
+                                  stdout=subprocess.DEVNULL,
+                                  shell=True)
         else:
             dstloc = 'local'
             dstpath = Path(args.dstpath)

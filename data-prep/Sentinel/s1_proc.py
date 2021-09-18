@@ -80,7 +80,9 @@ def main():
         prefix = u.path.strip('/')
         srcpath = f'{srcloc}://{bucket}/{prefix}'
         print(f'Listing {srcloc}://{bucket}/{prefix}')
-        subprocess.check_call(f'gsutil ls {srcloc}://{bucket}/{prefix}', shell=True)
+        subprocess.check_call(f'gsutil ls {srcloc}://{bucket}/{prefix}',
+                              stdout=subprocess.DEVNULL,
+                              shell=True)
     else:
         srcloc = 'local'
         srcpath = Path(args.srcpath)
