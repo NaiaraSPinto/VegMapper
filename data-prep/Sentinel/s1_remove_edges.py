@@ -58,7 +58,7 @@ def main():
     if u.scheme == 's3' or u.scheme == 'gs':
         srcloc = u.scheme
         bucket = u.netloc
-        prefix = Path(u.path).parent.parent
+        prefix = u.path.strip('/')
         year = Path(u.path).parent.name
         path_frame = Path(u.path).name
         path_frame_dir = f'{srcloc}://{bucket}/{prefix}'
