@@ -155,20 +155,20 @@ def main():
     parser = argparse.ArgumentParser(
         description='remove edges of a raster image')
     parser.add_argument('srcfile', metavar='srcfile',
-                        type=Path,
+                        type=str,
                         help='source raster file')
     parser.add_argument('dstfile', metavar='dstfile',
-                        type=Path,
+                        type=str,
                         help='destination raster file')
     parser.add_argument('--edge_depth', metavar='edge_depth', dest='edge_depth',
                         type=int,
                         default=1,
                         help=('edge depth to be removed'))
     parser.add_argument('--maskfile', metavar='maskfile',
-                        type=Path,
+                        type=str,
                         help='mask raster file to replace the mask of srcfile')
     parser.add_argument('--edgefile', metavar='edgefile',
-                        type=Path,
+                        type=str,
                         help='output edge raster file')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--lr_only',
