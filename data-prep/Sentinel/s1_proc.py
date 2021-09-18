@@ -79,7 +79,6 @@ def main():
         bucket = u.netloc
         prefix = u.path.strip('/')
         srcpath = f'{srcloc}://{bucket}/{prefix}'
-        print(f'Listing {srcloc}://{bucket}/{prefix}')
         subprocess.check_call(f'gsutil ls {srcloc}://{bucket}/{prefix}',
                               stdout=subprocess.DEVNULL,
                               shell=True)
