@@ -3,9 +3,20 @@
 import argparse
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
+
+
+def progress_bar(index, num_indices, pct_thres):
+    if index/num_indices >= pct_thres:
+        if int(pct_thres*100) % 10 == 0:
+            print(int(round(pct_thres*100)), end='')
+        else:
+            print('.', end='')
+        pct_thres += 0.025
+    if index == num_indices-1:
+        print('100 - done.')
+    return pct_thres
 
 
 def extract_inner_edges(mask):
@@ -144,20 +155,20 @@ def main():
     parser = argparse.ArgumentParser(
         description='remove edges of a raster image')
     parser.add_argument('srcfile', metavar='srcfile',
-                        type=Path,
+                        type=str,
                         help='source raster file')
     parser.add_argument('dstfile', metavar='dstfile',
-                        type=Path,
+                        type=str,
                         help='destination raster file')
     parser.add_argument('--edge_depth', metavar='edge_depth', dest='edge_depth',
                         type=int,
                         default=1,
                         help=('edge depth to be removed'))
     parser.add_argument('--maskfile', metavar='maskfile',
-                        type=Path,
+                        type=str,
                         help='mask raster file to replace the mask of srcfile')
     parser.add_argument('--edgefile', metavar='edgefile',
-                        type=Path,
+                        type=str,
                         help='output edge raster file')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--lr_only',
@@ -182,6 +193,7 @@ def main():
         mask = src_mask
 
     edge = np.zeros(mask.shape, np.uint8)
+    pct_thres = 0
     for i in range(args.edge_depth):
         if args.lr_only:
             side_edge = identify_side_edges(mask, left_and_right=True)
@@ -191,6 +203,7 @@ def main():
             side_edge = extract_inner_edges(mask)
         mask[side_edge > 0] = 0
         edge[side_edge > 0] = side_edge[side_edge > 0]
+        pct_thres = progress_bar(i, args.edge_depth, pct_thres)
 
     if nodata is None:
         raise Exception('No nodata value set for srcfile. '

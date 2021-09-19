@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-import rasterio
 
 pf_pattern = re.compile(r'^\d+_\d+$', re.ASCII)
 
@@ -44,24 +43,9 @@ def s1_proc(srcloc, srcpath, year, m1, m2, path_frame=None):
             subprocess.check_call(f'calc_vrt_stats.py {vrtpath} mean', shell=True)
 
         # Remove left and right edge pixels
-        print(f'\nRemoving 200 edge pixels on the left and right ... ')
-        if srcloc == 's3' or srcloc == 'gs':
-            srcpath = srcpath.replace(f'{srcloc}://', f'/vsi{srcloc}/')
-        vv = f'{srcpath}/{year}/{path_frame}/{year}_{path_frame}_VV_mean.tif'
-        ls = f'{srcpath}/{year}/{path_frame}/{year}_{path_frame}_LS_mean.tif'
-        subprocess.check_call((f'remove_edges.py {vv} {vv} '
-                               f'--maskfile {ls} '
-                               f'--lr_only --edge_depth 200'),
-                               shell=True)
-        with rasterio.open(vv) as dset:
-            mask = dset.read_masks(1)
-        for layer in ['VH', 'INC']:
-            tif = f'{srcpath}/{year}/{path_frame}/{year}_{path_frame}_{layer}_mean.tif'
-            with rasterio.open(tif, 'r+') as dset:
-                data = dset.read(1)
-                data[mask == 0] = dset.nodata
-                dset.write(data, 1)
-        print(f'Done processing {year}_{path_frame}.')
+        subprocess.check_call(f's1_remove_edges.py {srcpath}/{year}/{path_frame}', shell=True)
+
+        print(f'\nDone processing {year}_{path_frame}.')
 
 
 def main():
@@ -95,8 +79,9 @@ def main():
         bucket = u.netloc
         prefix = u.path.strip('/')
         srcpath = f'{srcloc}://{bucket}/{prefix}'
-        print(f'Listing {srcloc}://{bucket}/{prefix}')
-        subprocess.check_call(f'gsutil ls {srcloc}://{bucket}/{prefix}', shell=True)
+        subprocess.check_call(f'gsutil ls {srcloc}://{bucket}/{prefix}',
+                              stdout=subprocess.DEVNULL,
+                              shell=True)
     else:
         srcloc = 'local'
         srcpath = Path(args.srcpath)

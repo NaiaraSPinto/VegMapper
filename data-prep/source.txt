@@ -1,3 +1,5 @@
+Landsat/gee_export_landsat_ndvi.py
+MODIS/gee_export_modis_tc.py
 Sentinel/s1_build_vrt.py
 Sentinel/s1_metadata_summary.py
 Sentinel/s1_proc.py
