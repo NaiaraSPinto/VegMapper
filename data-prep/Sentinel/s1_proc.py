@@ -45,7 +45,7 @@ def s1_proc(srcloc, srcpath, year, m1, m2, path_frame=None):
         # Remove left and right edge pixels
         subprocess.check_call(f's1_remove_edges.py {srcpath}/{year}/{path_frame}', shell=True)
 
-        print(f'Done processing {year}_{path_frame}.')
+        print(f'\nDone processing {year}_{path_frame}.')
 
 
 def main():
