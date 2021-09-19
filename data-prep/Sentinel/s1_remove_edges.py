@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
 
+import numpy as np
 import rasterio
 
 
@@ -27,6 +28,8 @@ def s1_remove_edges(srcloc, path_frame_dir, year, path_frame, edge_depth):
         if layer != 'VV':
             with rasterio.open(tif) as dset:
                 data = dset.read(1)
+                if layer == 'INC':
+                    data = np.rad2deg(data)
                 data[mask == 0] = dset.nodata
                 profile = dset.profile
             with rasterio.open(tif_edge_removed, 'w', **profile) as dset:
