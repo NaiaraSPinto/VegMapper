@@ -104,8 +104,8 @@ def main():
                         help=('year'))
     parser.add_argument('dst', metavar='dst',
                         type=str,
-                        help=('destination location to store the downloaded data'
-                              '(s3:// or gs:// or local paths)'))
+                        help=('destination location (s3:// or gs:// or local paths); '
+                              'downloaded data will be stored under dst/year/tarfiles/'))
     args = parser.parse_args()
 
     # Get JAXA login info
