@@ -21,16 +21,28 @@ import numpy as np
 def {pixfun_name}(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_ysize, buf_radius, gt, **kwargs):
     intercept = {intercept}
     posteriors = {posteriors}
-    l_rvi = 4 * in_ar[4] / (in_ar[3] + in_ar[4])
-    c_rvi = 4 * in_ar[1] / (in_ar[0] + in_ar[1])
+    
+    mask = np.where((in_ar[0] != 0) & (in_ar[1] != 0) & (in_ar[2] != 0) & (in_ar[3] != 0) & (in_ar[4] != 0) & (in_ar[5] != 0) & (in_ar[6] != 0) & (in_ar[7] != 0))
+
+    l_rvi = np.ones(in_ar[0].shape) * np.nan
+    l_hh = in_ar[3]
+    l_hv = in_ar[4]
+    l_rvi[mask] = 4 * l_hv[mask] / (l_hh[mask] + l_hv[mask]) 
+
+    c_rvi = np.ones(in_ar[0].shape) * np.nan
+    c_vv = in_ar[0]
+    c_vh = in_ar[1]
+    c_rvi[mask] = 4 * c_vh[mask] / (c_vv[mask] + c_vh[mask])
 
     z = intercept
     for i in range(8):
         z = z + posteriors[i] * in_ar[i]
     z = z + posteriors[8] * l_rvi
     z = z + posteriors[9] * c_rvi
-
-    prob = np.exp(z)/(1+ np.exp(z)) * 100
+    
+    prob = np.ones(out_ar.shape) * 255
+    prob[mask] = np.exp(z[mask])/(1+ np.exp(z[mask])) * 100
+    prob[(prob == 0) | (np.isnan(prob))] = 255
     out_ar[:] = prob.astype(out_ar.dtype)
 """
 
@@ -65,8 +77,8 @@ for i, stack_url in enumerate(stack_url_list):
         lines = f.readlines()
 
     # Insert pixel function
-    lines[3] = lines[3].replace('dataType="Float32" band="1"',
-                                'dataType="Byte" band="1" subClass="VRTDerivedRasterBand"')
+    lines[3] = lines[3].replace('band="1"',
+                                'band="1" subClass="VRTDerivedRasterBand"')
     for i in range(8):
         lines[8+i*8] = lines[8+i*8].replace(f'<SourceBand>1</SourceBand>',
                                             f'<SourceBand>{i+1}</SourceBand>')
@@ -76,13 +88,21 @@ for i, stack_url in enumerate(stack_url_list):
     with open(vrt, 'w') as f:
         f.writelines(lines)
 
-    # Translate VRT into GeoTIFF
+    tmp_tif = Path('tmp.tif')
     cmd = (f'gdal_translate '
            f'--config GDAL_VRT_ENABLE_PYTHON YES '
+           f'{vrt} {tmp_tif}')
+    subprocess.check_call(cmd, shell=True)
+
+    # Translate VRT into GeoTIFF
+    cmd = (f'gdal_translate '
+           f'-ot Byte '
+           f'-a_nodata 255 '
            f'-co compress=lzw '
            f'--config CPL_VSIL_USE_TEMP_FILE_FOR_RANDOM_WRITE YES '
-           f'{vrt} {model_tif}')
+           f'{tmp_tif} {model_tif}')
     subprocess.check_call(cmd, shell=True)
 
     # Delete VRT
     vrt.unlink()
+    tmp_tif.unlink()
