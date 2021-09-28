@@ -30,7 +30,8 @@ def {pixfun_name}(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_
     z = z + posteriors[8] * l_rvi
     z = z + posteriors[9] * c_rvi
 
-    out_ar[:] = np.exp(z)/(1+ np.exp(z)) * 100
+    prob = np.exp(z)/(1+ np.exp(z)) * 100
+    out_ar[:] = prob.astype(out_ar.dtype)
 """
 
 contents = f"""    <PixelFunctionType>{pixfun_name}</PixelFunctionType>
@@ -64,8 +65,8 @@ for i, stack_url in enumerate(stack_url_list):
         lines = f.readlines()
 
     # Insert pixel function
-    lines[3] = lines[3].replace('band="1"',
-                                'band="1" subClass="VRTDerivedRasterBand"')
+    lines[3] = lines[3].replace('dataType="Float32" band="1"',
+                                'dataType="Byte" band="1" subClass="VRTDerivedRasterBand"')
     for i in range(8):
         lines[8+i*8] = lines[8+i*8].replace(f'<SourceBand>1</SourceBand>',
                                             f'<SourceBand>{i+1}</SourceBand>')
@@ -77,7 +78,6 @@ for i, stack_url in enumerate(stack_url_list):
 
     # Translate VRT into GeoTIFF
     cmd = (f'gdal_translate '
-           f'-ot Byte '
            f'--config GDAL_VRT_ENABLE_PYTHON YES '
            f'-co compress=lzw '
            f'--config CPL_VSIL_USE_TEMP_FILE_FOR_RANDOM_WRITE YES '
