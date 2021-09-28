@@ -54,13 +54,17 @@ for i, stack_url in enumerate(stack_url_list):
 
     # Build VRT
     cmd = (f'gdalbuildvrt -overwrite -b 1 '
-        f'{vrt} ')
+           f'{vrt} ')
     for i in range(8):
         cmd = cmd + f' {stack_tif}'
     subprocess.check_call(cmd, shell=True)
 
+    vrt_byte = Path('tmp_byte.vrt')
+    cmd = (f'gdal_translate -ot Byte {vrt} {vrt_byte}')
+    subprocess.check_call(cmd, shell=True)
+
     # Read VRT
-    with open(vrt) as f:
+    with open(vrt_byte) as f:
         lines = f.readlines()
 
     # Insert pixel function
@@ -72,17 +76,17 @@ for i, stack_url in enumerate(stack_url_list):
     lines.insert(4, contents)
 
     # Write VRT
-    with open(vrt, 'w') as f:
+    with open(vrt_byte, 'w') as f:
         f.writelines(lines)
 
     # Translate VRT into GeoTIFF
     cmd = (f'gdal_translate '
-           f'-ot Byte '
            f'--config GDAL_VRT_ENABLE_PYTHON YES '
            f'-co compress=lzw '
            f'--config CPL_VSIL_USE_TEMP_FILE_FOR_RANDOM_WRITE YES '
-           f'{vrt} {model_tif}')
+           f'{vrt_byte} {model_tif}')
     subprocess.check_call(cmd, shell=True)
 
     # Delete VRT
     vrt.unlink()
+    vrt_byte.unlink()
