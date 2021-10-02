@@ -83,12 +83,9 @@ def download_tiles(tile_list, year, dst, jaxa_username, jaxa_password):
                f'dir_gz/{year}/{grid}/{file}')
         cmd = f'wget --user {jaxa_username} --password {jaxa_password} '
         if isinstance(dst, Path):
-            dst = dst / f'{year}/tarfiles'
-            if not dst.exists():
-                dst.mkdir(parents=True)
             cmd = cmd + f'-c -P {dst} {url}'
         elif isinstance(dst, str):
-            cmd = cmd + f'-O- {url} | gsutil cp - {dst}/{year}/tarfiles/{file}'
+            cmd = cmd + f'-O- {url} | gsutil cp - {dst}/{file}'
         subprocess.call(cmd, shell=True)
 
 
@@ -135,7 +132,7 @@ def main():
         dstloc = u.scheme
         bucket = u.netloc
         prefix = u.path.strip('/')
-        dst = f'{dstloc}://{bucket}/{prefix}'
+        dst = f'{dstloc}://{bucket}/{prefix}/{args.year}/tarfiles'
         subprocess.check_call(f'gsutil ls {dstloc}://{bucket}/{prefix}',
                               stdout=subprocess.DEVNULL,
                               shell=True)
@@ -144,6 +141,9 @@ def main():
         dst = Path(args.dst)
         if not dst.is_dir():
             raise Exception(f'{args.dst} is not a valid directory path')
+        dst = dst / f'{args.year}/tarfiles'
+        if not dst.exists():
+            dst.mkdir(parents=True)
 
     tile_list = get_tiles(args.aoi)
     download_tiles(tile_list, args.year, dst, jaxa_username, jaxa_password)
