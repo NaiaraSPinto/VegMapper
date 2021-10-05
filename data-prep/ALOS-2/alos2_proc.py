@@ -2,184 +2,183 @@
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlparse
 
-import rasterio
+import cv2 as cv
 import geopandas as gpd
+import numpy as np
+import rasterio
 
 
-layer_suffix = {
-    'HH': 'sl_HH',
-    'HV': 'sl_HV',
-    'INC': 'linci',
-    'DOY': 'date',
-}
+def enhanced_lee_filter(img, win_size, num_looks=1, nodata=None):
+    # Get image mask (0: nodata; 1: data)
+    mask = np.ones(img.shape)
+    mask[img == nodata] = 0
+    mask[np.isnan(img)] = 0     # in case there are pixels of NaNs
+
+    # Change nodata pixels to 0 so they don't contribute to the sums
+    img[mask == 0] = 0
+
+    # Kernel size
+    ksize = (win_size, win_size)
+
+    # Window sum of image values
+    img_sum = cv.boxFilter(img, -1, ksize,
+                           normalize=False, borderType=cv.BORDER_ISOLATED)
+    # Window sum of image values squared
+    img2_sum = cv.boxFilter(img**2, -1, ksize,
+                            normalize=False, borderType=cv.BORDER_ISOLATED)
+    # Pixel number within window
+    pix_num = cv.boxFilter(mask, -1, ksize,
+                           normalize=False, borderType=cv.BORDER_ISOLATED)
+
+    # There might be a loss of accuracy as how boxFilter handles floating point
+    # number subtractions/additions, causing a window of all zeros to have
+    # non-zero sum, hence correction here using np.isclose.
+    img_sum[np.isclose(img_sum, 0)] = 0
+    img2_sum[np.isclose(img2_sum, 0)] = 0
+
+    # Get image mean and std within window
+    img_mean = np.full(img.shape, np.nan)       # E[X]
+    img2_mean = np.full(img.shape, np.nan)      # E[X^2]
+    img_mean2 = np.full(img.shape, np.nan)      # (E[X])^2
+    img_std = np.full(img.shape, 0)             # sqrt(E[X^2] - (E[X])^2)
+
+    idx = np.where(pix_num != 0)                # Avoid division by zero
+    img_mean[idx] = img_sum[idx]/pix_num[idx]
+    img2_mean[idx] = img2_sum[idx]/pix_num[idx]
+    img_mean2 = img_mean**2
+
+    idx = np.where(~np.isclose(img2_mean, img_mean2))       # E[X^2] and (E[X])^2 are close
+    img_std[idx] = np.sqrt(img2_mean[idx] - img_mean2[idx])
+
+    # Get weighting function
+    k = 1
+    cu = 0.523/np.sqrt(num_looks)
+    cmax = np.sqrt(1 + 2/num_looks)
+    ci = img_std / img_mean         # it's fine that img_mean could be zero here
+    w_t = np.zeros(img.shape)
+    w_t[ci <= cu] = 1
+    idx = np.where((cu < ci) & (ci < cmax))
+    w_t[idx] = np.exp((-k * (ci[idx] - cu)) / (cmax - ci[idx]))
+
+    # Apply weighting function
+    img_filtered = (img_mean * w_t) + (img * (1 - w_t))
+
+    # Assign nodata value
+    img_filtered[pix_num == 0] = nodata
+
+    return img_filtered
 
 
-def build_vrt(year, src):
-    yy = str(year)[2:]
+def proc_tarfile(tarfile, year, proj_dir, vsi_path):
+    print(f'Processing {tarfile} ...')
+
+    tile = tarfile.split('_')[0]
+    yy = tarfile.split('_')[1]
+
     if year < 2014:
         # ALOS
         postfix = ''
-        launch_date = date(2006, 1, 24)
     else:
         # ALOS-2
-        postfix = 'F02DAR'
-        launch_date = date(2014, 5, 24)
-
-    tarfile_pattern = re.compile(r'^[N|S]{1}\w{2}[E|W]{1}\w{3}_\w{2}_MOS')
-
-    # The .tar.gz files should be under src/year/tarfiles
-    ls_cmd = f'ls {src}/*.tar.gz'
-    if isinstance(src, str):
-        ls_cmd = 'gsutil ' + ls_cmd
-    tarfile_list = [Path(p).name for p in subprocess.check_output(ls_cmd, shell=True).decode(sys.stdout.encoding).splitlines()]
-    for tarfile in tarfile_list:
-        if not tarfile_pattern.match(tarfile):
-            tarfile_list.remove(tarfile)
-    if not tarfile_list:
-        raise Exception(f'No .tar.gz files found under {src}/{year}/tarfiles/.')
+        postfix = '_F02DAR'
 
     if year < 2019:
         suffix = ''
     else:
         suffix = '.tif'
 
-    for layer in ['HH', 'HV', 'INC', 'DOY']:
-        vrt_0 = Path(f'{layer}_0.vrt')
-        tif_list = []
-        for tarfile in tarfile_list:
-            tile = tarfile.split('_')[0]
-            if isinstance(src, Path):
-                tif = f'/vsitar/{src}/{tarfile}/{tile}_{yy}_{layer_suffix[layer]}_{postfix}{suffix}'
-            elif isinstance(src, str):
-                u = urlparse(src)
-                bucket = u.netloc
-                prefix = u.path.strip('/')
-                tif = f'/vsitar/vsis3/{bucket}/{prefix}/{tarfile}/{tile}_{yy}_{layer_suffix[layer]}_{postfix}{suffix}'
-            tif_list.append(tif)
-        cmd = f'gdalbuildvrt -overwrite {vrt_0} {" ".join(tif_list)}'
-        subprocess.check_call(cmd, shell=True)
+    for pq in ['HH', 'HV']:
+        # Read in DN
+        dn_raster = f'{vsi_path}/{tarfile}/{tile}_{yy}_sl_{pq}{postfix}{suffix}'
+        with rasterio.open(dn_raster) as dset:
+            dn = dset.read(1).astype(np.float64)
+            profile = dset.profile
 
-        # Convert HH/HV/INC to Float32, DOY to Int16
-        vrt_1 = Path(f'{layer}_1.vrt')
-        if layer in ['HH', 'HV', 'INC']:
-            cmd = f'gdal_translate -ot Float32 {vrt_0} {vrt_1}'
-        else:
-            cmd = f'gdal_translate -ot Int16 {vrt_0} {vrt_1}'
+        # Convert DN to gamma0
+        g0 = dn**2 * 10**(-83/10)
 
+        # Filter gamma0 using enhanced Lee filter
+        g0_filtered = enhanced_lee_filter(g0, 5, num_looks=180, nodata=np.nan)
 
-def warp_to_tiles(utm_tiles):
+        # Write to GeoTIFF
+        profile.update(driver='GTiff', dtype=np.float32, nodata=np.nan)
+        g0_filtered_tif = Path(f'{tile}_{yy}_{pq}_filtered.tif')
+        with rasterio.open(g0_filtered_tif, 'w', **profile) as dset:
+            dset.write(g0_filtered.astype(np.float32), 1)
 
-    gdf = gpd.read_file(utm_tiles)
+        # Move/copy filtered GeoTIFF to proj_dir/alos2_mosaic/year/tile
+        if isinstance(proj_dir, Path):
+            dst = proj_dir / f'alos2_mosaic/{year}/{tile}/{g0_filtered_tif.name}'
+            if not dst.parent.exists():
+                dst.parent.mkdir()
+            shutil.move(g0_filtered_tif, dst)
+        elif isinstance(proj_dir, str):
+            cmd = (f'gsutil cp {g0_filtered_tif} {proj_dir}/alos2_mosaic/{year}/{tile}/{g0_filtered_tif}')
+            subprocess.check_call(cmd, shell=True)
+            g0_filtered_tif.unlink()
 
-    # t_res = 30
-    # t_epsg = gdf.crs.to_epsg()
-
-    # for i in gdf.index:
-    #     h = gdf['h'][i]
-    #     v = gdf['v'][i]
-    #     m = gdf['mask'][i]
-    #     p = gdf['geometry'][i]
-
-    #     for var in ['DOY', 'HH', 'HV', 'INC']:
-    #         vrt = f'{var}.vrt'
-    #         out_tif = f'/vsis3/{bucket}/{prefix}/alos2_mosaic_{state}_{year}_h{h}v{v}_{var}.tif'
-
-    #         xmin = p.bounds[0]
-    #         ymin = p.bounds[1]
-    #         xmax = p.bounds[2]
-    #         ymax = p.bounds[3]
-
-    #         if var in ['HH', 'HV', 'INC']:
-    #             wt = 'Float32'
-    #             ot = 'Float32'
-    #             nodata = 'nan'
-    #             resampling = 'bilinear'
-    #         else:
-    #             wt = 'Int16'
-    #             ot = 'Int16'
-    #             nodata = 0
-    #             resampling = 'near'
-
-    #         cmd = (f'gdalwarp -overwrite '
-    #             f'-t_srs EPSG:{t_epsg} -et 0 '
-    #             f'-te {xmin} {ymin} {xmax} {ymax} '
-    #             f'-tr {t_res} {t_res} '
-    #             f'-wt {wt} -ot {ot} '
-    #             f'-dstnodata {nodata} '
-    #             f'-r {resampling} '
-    #             f'-co COMPRESS=LZW '
-    #             f'--config CPL_VSIL_USE_TEMP_FILE_FOR_RANDOM_WRITE YES '
-    #             f'{vrt} {out_tif}')
-    #         subprocess.check_call(cmd, shell=True)
-
-            # if var == 'DOY':
-            #     with rasterio.open(out_tif, 'r+') as dset:
-            #         days_after_launch = dset.read(1)
-            #         mask = dset.read_masks(1)
-            #         doy = days_after_launch + (launch_date - date(year, 1, 1)).days + 1
-            #         doy[mask == 0] = dset.nodata
-            #         dset.write(doy, 1)
 
 def main():
     parser = argparse.ArgumentParser(
-        description='download ALOS/ALOS-2 Mosaic data from JAXA website'
+        description='processing ALOS/ALOS-2 yearly mosaic data'
     )
-    parser.add_argument('tiles', metavar='tiles',
+    parser.add_argument('proj_dir', metavar='proj_dir',
                         type=str,
-                        help='geojson of UTM tiles generated by prep_tiles.py')
+                        help=('project directory (s3:// or gs:// or local dirs); '
+                              'ALOS/ALOS-2 mosaic data (.tar.gz) are expected '
+                              'to be found under proj_dir/alos2_mosaic/year/tarfiles/'))
     parser.add_argument('year', metavar='year',
-                        type=int,
-                        help=('year'))
-    parser.add_argument('src', metavar='src',
                         type=str,
-                        help=('source location (s3:// or gs:// or local paths); '
-                              'downloaded ALOS/ALOS-2 Mosaic data expected to be found under src/year/tarfiles/'))
-    parser.add_argument('dst', metavar='dst',
-                        type=str,
-                        help=('destination location (s3:// or gs:// or local paths); '
-                              'processed data will be stored under dst/year/'))
+                        help='year')
     args = parser.parse_args()
+    year = int(args.year)
 
-    # Check src
-    u = urlparse(args.src)
+    # Check proj_dir
+    u = urlparse(args.proj_dir)
     if u.scheme == 's3' or u.scheme == 'gs':
-        srcloc = u.scheme
+        storage = u.scheme
         bucket = u.netloc
         prefix = u.path.strip('/')
-        src = f'{srcloc}://{bucket}/{prefix}/{args.year}/tarfiles'
-        subprocess.check_call(f'gsutil ls {src}',
+        proj_dir = f'{storage}://{bucket}/{prefix}'
+        vsi_path = f'/vsitar/vsi{storage}/{bucket}/{prefix}/alos2_mosaic/{year}/tarfiles'
+        subprocess.check_call(f'gsutil ls {storage}://{bucket}',
                               stdout=subprocess.DEVNULL,
                               shell=True)
     else:
-        srcloc = 'local'
-        src = Path(args.src) / f'{args.year}/tarfiles'
-        if not src.is_dir():
-            raise Exception(f'{args.src} is not a valid directory path')
+        storage = 'local'
+        proj_dir = Path(args.proj_dir)
+        vsi_path = f'/vsitar/{proj_dir}/alos2_mosaic/{year}/tarfiles'
+        if not proj_dir.is_dir():
+            raise Exception(f'{proj_dir} is not a valid directory path')
 
-    # Check dst
-    u = urlparse(args.dst)
-    if u.scheme == 's3' or u.scheme == 'gs':
-        dstloc = u.scheme
-        bucket = u.netloc
-        prefix = u.path.strip('/')
-        dst = f'{dstloc}://{bucket}/{prefix}/{args.year}'
-        subprocess.check_call(f'gsutil ls {dst}',
-                              stdout=subprocess.DEVNULL,
-                              shell=True)
+    # .tar.gz filename pattern
+    if year < 2014:
+        # ALOS
+        tarfile_pattern = re.compile(r'^[N|S]{1}\w{2}[E|W]{1}\w{3}_\w{2}_MOS.tar.gz$')
     else:
-        dstloc = 'local'
-        dst = Path(args.dst) / f'{args.year}'
-        if not dst.is_dir():
-            raise Exception(f'{args.dst} is not a valid directory path')
+        # ALOS-2
+        tarfile_pattern = re.compile(r'^[N|S]{1}\w{2}[E|W]{1}\w{3}_\w{2}_MOS_F02DAR.tar.gz$')
 
-    build_vrt(args.year, src)
+    # List all tarfiles
+    ls_cmd = f'ls {proj_dir}/alos2_mosaic/{year}/tarfiles/*.tar.gz'
+    if isinstance(proj_dir, str):
+        ls_cmd = 'gsutil ' + ls_cmd
+    tarfile_list = [Path(p).name for p in subprocess.check_output(ls_cmd, shell=True).decode(sys.stdout.encoding).splitlines()]
 
+    if not tarfile_list:
+        raise Exception(f'No .tar.gz files found under {proj_dir}/alos2_mosaic/{year}/tarfiles/.')
+
+    print(f'\nProcessing ALOS-2 yearly mosaic data in {proj_dir}/alos2_mosaic/{year}/tarfiles ...\n')
+    for tarfile in tarfile_list:
+        if tarfile_pattern.fullmatch(tarfile):
+            proc_tarfile(tarfile, year, proj_dir, vsi_path)
 
 
 if __name__ == '__main__':
