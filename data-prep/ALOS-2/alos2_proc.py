@@ -77,7 +77,7 @@ def enhanced_lee_filter(img, win_size, num_looks=1, nodata=None):
 
 
 def proc_tarfile(tarfile, year, proj_dir, vsi_path):
-    print(f'Processing {tarfile} ...')
+    print(f'\nProcessing {tarfile} ...')
 
     tile = tarfile.split('_')[0]
     yy = tarfile.split('_')[1]
@@ -175,11 +175,12 @@ def main():
     if not tarfile_list:
         raise Exception(f'No .tar.gz files found under {proj_dir}/alos2_mosaic/{year}/tarfiles/.')
 
-    print(f'\nProcessing ALOS-2 yearly mosaic data in {proj_dir}/alos2_mosaic/{year}/tarfiles ...\n')
+    print(f'\nProcessing ALOS-2 yearly mosaic data in {proj_dir}/alos2_mosaic/{year}/tarfiles ...')
     for tarfile in tarfile_list:
         if tarfile_pattern.fullmatch(tarfile):
             proc_tarfile(tarfile, year, proj_dir, vsi_path)
 
+    print('DONE processing ALOS-2 yearly mosaic data.')
 
 if __name__ == '__main__':
     main()
