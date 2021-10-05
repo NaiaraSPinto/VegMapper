@@ -3,19 +3,22 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.9
-  - pip
-  - requests
   - boto3
+  - earthengine-api
   - gdal
-  - rasterio
-  - hyp3_sdk
-  - numpy
-  - pandas
-  - vim
-  - tmux
-  - git
-  - unidecode
-  - gsutil
   - geopandas
+  - git
+  - gsutil
+  - hyp3_sdk
+  - jupyterlab
+  - numpy
+  - opencv
+  - pandas
+  - pip
+  - python=3.9
+  - rasterio
+  - requests
+  - tmux
+  - unidecode
+  - vim
   - wget
