@@ -180,7 +180,7 @@ def main():
         if tarfile_pattern.fullmatch(tarfile):
             proc_tarfile(tarfile, year, proj_dir, vsi_path)
 
-    print('DONE processing ALOS-2 yearly mosaic data.')
+    print('\nDONE processing ALOS-2 yearly mosaic data.')
 
 if __name__ == '__main__':
     main()
