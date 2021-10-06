@@ -2,6 +2,9 @@ import cv2 as cv
 import numpy as np
 
 def enhanced_lee_filter(img, win_size, num_looks=1, nodata=None):
+    src_dtype = img.dtype
+    img = img.astype(np.float64)
+
     # Get image mask (0: nodata; 1: data)
     mask = np.ones(img.shape)
     mask[img == nodata] = 0
@@ -30,17 +33,17 @@ def enhanced_lee_filter(img, win_size, num_looks=1, nodata=None):
     img2_sum[np.isclose(img2_sum, 0)] = 0
 
     # Get image mean and std within window
-    img_mean = np.full(img.shape, np.nan)       # E[X]
-    img2_mean = np.full(img.shape, np.nan)      # E[X^2]
-    img_mean2 = np.full(img.shape, np.nan)      # (E[X])^2
-    img_std = np.full(img.shape, 0)             # sqrt(E[X^2] - (E[X])^2)
+    img_mean = np.full(img.shape, np.nan, dtype=np.float64)     # E[X]
+    img2_mean = np.full(img.shape, np.nan, dtype=np.float64)    # E[X^2]
+    img_mean2 = np.full(img.shape, np.nan, dtype=np.float64)    # (E[X])^2
+    img_std = np.full(img.shape, 0, dtype=np.float64)           # sqrt(E[X^2] - (E[X])^2)
 
     idx = np.where(pix_num != 0)                # Avoid division by zero
     img_mean[idx] = img_sum[idx]/pix_num[idx]
     img2_mean[idx] = img2_sum[idx]/pix_num[idx]
     img_mean2 = img_mean**2
 
-    idx = np.where(~np.isclose(img2_mean, img_mean2))       # E[X^2] and (E[X])^2 are close
+    idx = np.where(~np.isclose(img2_mean, img_mean2))           # E[X^2] and (E[X])^2 are close
     img_std[idx] = np.sqrt(img2_mean[idx] - img_mean2[idx])
 
     # Get weighting function
@@ -59,4 +62,4 @@ def enhanced_lee_filter(img, win_size, num_looks=1, nodata=None):
     # Assign nodata value
     img_filtered[pix_num == 0] = nodata
 
-    return img_filtered
+    return img_filtered.astype(src_dtype)
