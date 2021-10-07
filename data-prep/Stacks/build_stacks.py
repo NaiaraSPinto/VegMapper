@@ -1,145 +1,205 @@
+#!/usr/bin/env python
+
 import argparse
+import re
 import subprocess
+import sys
 from pathlib import Path
 
 import boto3
 import geopandas as gpd
 
 import rasterio
-
-parser = argparse.ArgumentParser(add_help=False)
-parser.add_argument('country', help='country name')
-parser.add_argument('state', help='state name')
-parser.add_argument('year', type=int, help='year (1900 - 2100)')
-parser.add_argument('-h', '--help', action='help', help='removes the left and right edges of Sentinel-1 images')
-args = parser.parse_args()
-
-country = args.country.lower()
-state = args.state.lower()
-year = args.year
-
-if year < 1900 or year > 2100:
-    raise Exception('year must be a 4-digit number between 1900 and 2100')
-
-print(f'country: {country}')
-print(f'state: {state}')
-print(f'year: {year}')
+from urllib.parse import urlparse
 
 t_res = 30
+s1_pf_pattern = re.compile(r'^\d+_\d+$', re.ASCII)
 
-s3 = boto3.client('s3')
-bucket = f'servir-public'
-prefix = f'geotiffs/{country}'
 
-gdf_tiles = gpd.read_file(f'../AOI/{state}/{state}_tiles.geojson')
-t_epsg = gdf_tiles.crs.to_epsg()
+def build_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=None):
+    # If sitename not specified, use proj_dir basename as sitename
+    if sitename is None:
+        sitename = f'{proj_dir}'.split('/')[-1]
 
-s1_vrt_dir = Path(f'{state}/{year}/s1_vrt')
-if not s1_vrt_dir.exists():
-    s1_vrt_dir.mkdir(parents=True)
+    # Make temporary directories to store VRT files
+    vrt_dir = Path('tmp_vrt')
+    if not vrt_dir.exists():
+        vrt_dir.mkdir()
 
-# Sentinel-1 VRT
-gdf = gpd.read_file(f'../Sentinel/granules/{state}/{state}_sentinel_granules_{year}_dry.geojson')
-gdf_granules = gdf.groupby(['pathNumber', 'frameNumber']).size().reset_index()
+    # List available Sentinel-1 granules (path_frame)
+    available_granules = []
+    if storage in ['s3', 'gs']:
+        ls_cmd = f'gsutil ls {proj_dir}/sentinel_1/{year}'
+        obj_list = subprocess.check_output(ls_cmd, shell=True).decode(sys.stdout.encoding).splitlines()
+        for obj_path in obj_list:
+            obj_name = Path(obj_path).name
+            if obj_path[-1] == '/' and s1_pf_pattern.fullmatch(obj_name):
+                available_granules.append(obj_name)
+    elif storage == 'local':
+        for p in (proj_dir / f'sentinel_1/{year}').iterdir():
+            if s1_pf_pattern.fullmatch(p.name):
+                available_granules.append(p.name)
 
-# Group granules by EPSG codes
-granules = {}
-for i in gdf_granules.index:
-    path = gdf_granules['pathNumber'][i]
-    frame = gdf_granules['frameNumber'][i]
-    granule = f'{path}_{frame}'
-    tif = f'/vsis3/{bucket}/{prefix}/sentinel_1/{year}/{granule}/{year}_{granule}_VV.tif'
-    with rasterio.open(tif) as dset:
-        epsg = dset.crs.to_epsg()
-    if epsg in granules.keys():
-        granules[epsg].append(granule)
-    else:
-        granules[epsg] = [granule]
+    gdf_tiles = gpd.read_file(tiles)
+    t_epsg = gdf_tiles.crs.to_epsg()
 
-for var in ['VV', 'VH', 'INC']:
-    vrt_list = []
-    for epsg, granule_list in granules.items():
-        vrt = s1_vrt_dir / f'C-{var}-{year}-{epsg}.vrt'
-        tif_list = []
-        for granule in granule_list:
-            tif = f'/vsis3/{bucket}/{prefix}/sentinel_1/{year}/{granule}/{year}_{granule}_{var}.tif'
-            tif_list.append(tif)
-        cmd = (f'gdalbuildvrt -overwrite '
-               f'{vrt} {" ".join(tif_list)}')
-        subprocess.check_call(cmd, shell=True)
-        s3.upload_file(str(vrt), bucket, f'{prefix}/vrts/{year}/s1_vrt/{vrt.name}')
-
-        if epsg == t_epsg:
-            vrt_list.append(str(vrt))
+    # Group granules by EPSG codes (UTM zones)
+    granules = {}
+    for granule in available_granules:
+        vv_tif = f'{proj_dir}/sentinel_1/{year}/{granule}/{year}_{granule}_VV.tif'
+        with rasterio.open(vv_tif) as dset:
+            epsg = dset.crs.to_epsg()
+        if epsg in granules.keys():
+            granules[epsg].append(granule)
         else:
-            vrt_t_epsg = s1_vrt_dir / f'C-{var}-{year}-{epsg}-to-{t_epsg}.vrt'
-            cmd = (f'gdalwarp -overwrite '
-                   f'-t_srs EPSG:{t_epsg} -et 0 '
-                   f'-tr {t_res} {t_res} -tap '
-                   f'-r near '
-                   f'-co COMPRESS=LZW '
-                   f'{vrt} {vrt_t_epsg}')
-            subprocess.check_call(cmd, shell=True)
-            s3.upload_file(str(vrt_t_epsg), bucket, f'{prefix}/vrts/{year}/s1_vrt/{vrt_t_epsg.name}')
-            vrt_list.append(str(vrt_t_epsg))
-
-    vrt = s1_vrt_dir / f'C-{var}-{year}.vrt'
-    cmd = (f'gdalbuildvrt -overwrite '
-           f'{vrt} {" ".join(vrt_list)}')
-    subprocess.check_call(cmd, shell=True)
-    s3.upload_file(str(vrt), bucket, f'{prefix}/vrts/{year}/s1_vrt/{vrt.name}')
-
-for i in gdf_tiles.index:
-    h = gdf_tiles['h'][i]
-    v = gdf_tiles['v'][i]
-    m = gdf_tiles['mask'][i]
-    g = gdf_tiles['geometry'][i]
-
-    if m == 0:
-        continue
+            granules[epsg] = [granule]
 
     for var in ['VV', 'VH', 'INC']:
-        src_vrt = s1_vrt_dir / f'C-{var}-{year}.vrt'
-        dst_vrt = s1_vrt_dir / f'C-{var}-{year}-h{h}v{v}.vrt'
+        vrt_list = []
+        for epsg, granule_list in granules.items():
+            # Make VRT for each EPSG (UTM zone)
+            vrt = vrt_dir / f'C-{var}-{year}-{epsg}.vrt'
+            tif_list = []
+            for granule in granule_list:
+                tif = f'{vsi_path}/sentinel_1/{year}/{granule}/{year}_{granule}_{var}.tif'
+                tif_list.append(tif)
+            cmd = (f'gdalbuildvrt -overwrite '
+                f'{vrt} {" ".join(tif_list)}')
+            subprocess.check_call(cmd, shell=True)
 
-        cmd = (f'gdalwarp -overwrite '
-               f'-t_srs EPSG:{t_epsg} -et 0 '
-               f'-te {g.bounds[0]} {g.bounds[1]} {g.bounds[2]} {g.bounds[3]} '
-               f'-tr {t_res} {t_res} '
-               f'-dstnodata nan '
-               f'-r near '
-               f'-co COMPRESS=LZW '
-               f'{src_vrt} {dst_vrt}')
+            # Virtually warp all VRT into target UTM projection (t_epsg)
+            if epsg == t_epsg:
+                vrt_list.append(str(vrt))
+            else:
+                vrt_t_epsg = vrt_dir / f'C-{var}-{year}-{epsg}-to-{t_epsg}.vrt'
+                cmd = (f'gdalwarp -overwrite '
+                    f'-t_srs EPSG:{t_epsg} -et 0 '
+                    f'-tr {t_res} {t_res} -tap '
+                    f'-dstnodata nan '
+                    f'-r near '
+                    f'-co COMPRESS=LZW '
+                    f'{vrt} {vrt_t_epsg}')
+                subprocess.check_call(cmd, shell=True)
+                vrt_list.append(str(vrt_t_epsg))
+
+        vrt = vrt_dir / f'C-{var}-{year}.vrt'
+        cmd = (f'gdalbuildvrt -overwrite '
+            f'{vrt} {" ".join(vrt_list)}')
         subprocess.check_call(cmd, shell=True)
-        s3.upload_file(str(dst_vrt), bucket, f'{prefix}/vrts/{year}/s1_vrt/{dst_vrt.name}')
 
-    band1 = s1_vrt_dir / f'C-VV-{year}-h{h}v{v}.vrt'
-    band2 = s1_vrt_dir / f'C-VH-{year}-h{h}v{v}.vrt'
-    band3 = s1_vrt_dir / f'C-INC-{year}-h{h}v{v}.vrt'
-    band4 = f'/vsis3/{bucket}/{prefix}/alos2_mosaic/{year}/alos2_mosaic_{state}_{year}_h{h}v{v}_HH.tif'
-    band5 = f'/vsis3/{bucket}/{prefix}/alos2_mosaic/{year}/alos2_mosaic_{state}_{year}_h{h}v{v}_HV.tif'
-    band6 = f'/vsis3/{bucket}/{prefix}/alos2_mosaic/{year}/alos2_mosaic_{state}_{year}_h{h}v{v}_INC.tif'
-    band7 = f'/vsis3/{bucket}/{prefix}/landsat_ndvi/{year}/landsat_ndvi_{state}_{year}_h{h}v{v}.tif'
-    if year == 2020:
-        band8 = f'/vsis3/{bucket}/{prefix}/modis_tree_cover/2019/modis_tc_{state}_2019_h{h}v{v}.tif'
+    for i in gdf_tiles.index:
+        h = gdf_tiles['h'][i]
+        v = gdf_tiles['v'][i]
+        m = gdf_tiles['mask'][i]
+        g = gdf_tiles['geometry'][i]
+
+        if m == 0:
+            continue
+
+        ############################ Sentinel-1 VRT ############################
+        for var in ['VV', 'VH', 'INC']:
+            src_vrt = vrt_dir / f'C-{var}-{year}.vrt'
+            dst_vrt = vrt_dir / f'C-{var}-{year}-h{h}v{v}.vrt'
+            cmd = (f'gdalwarp -overwrite '
+                   f'-t_srs EPSG:{t_epsg} -et 0 '
+                   f'-te {g.bounds[0]} {g.bounds[1]} {g.bounds[2]} {g.bounds[3]} '
+                   f'-tr {t_res} {t_res} '
+                   f'-dstnodata nan '
+                   f'-r near '
+                   f'-co COMPRESS=LZW '
+                   f'{src_vrt} {dst_vrt}')
+            subprocess.check_call(cmd, shell=True)
+
+        ############################## ALOS-2 VRT ##############################
+        for var in ['HH', 'HV', 'INC']:
+            src_vrt = f'{vsi_path}/alos2_mosaic/{year}/alos2_mosaic_{year}_{var}.vrt'
+            dst_vrt = vrt_dir / f'L-{var}-{year}-h{h}v{v}.vrt'
+            cmd = (f'gdalwarp -overwrite '
+                   f'-t_srs EPSG:{t_epsg} -et 0 '
+                   f'-te {g.bounds[0]} {g.bounds[1]} {g.bounds[2]} {g.bounds[3]} '
+                   f'-tr {t_res} {t_res} '
+                   f'-ot Float32 -wt Float32 '
+                   f'-dstnodata nan '
+                   f'-r average '
+                   f'-co COMPRESS=LZW '
+                   f'{src_vrt} {dst_vrt}')
+            subprocess.check_call(cmd, shell=True)
+
+        band1 = vrt_dir / f'C-VV-{year}-h{h}v{v}.vrt'
+        band2 = vrt_dir / f'C-VH-{year}-h{h}v{v}.vrt'
+        band3 = vrt_dir / f'C-INC-{year}-h{h}v{v}.vrt'
+        band4 = vrt_dir / f'L-HH-{year}-h{h}v{v}.vrt'
+        band5 = vrt_dir / f'L-HV-{year}-h{h}v{v}.vrt'
+        band6 = vrt_dir / f'L-INC-{year}-h{h}v{v}.vrt'
+        band7 = f'{vsi_path}/landsat_ndvi/{year}/landsat_ndvi_{sitename}_{year}_h{h}v{v}.tif'
+        if year == 2020:
+            band8 = f'{vsi_path}/modis_tree_cover/2019/modis_tc_{sitename}_2019_h{h}v{v}.tif'
+        else:
+            band8 = f'{vsi_path}/modis_tree_cover/{year}/modis_tc_{sitename}_{year}_h{h}v{v}.tif'
+
+        vrt = vrt_dir / f'{sitename}_stacks_{year}_h{h}v{v}.vrt'
+        cmd = (f'gdalbuildvrt -overwrite -separate '
+               f'{vrt} {band1} {band2} {band3} {band4} {band5} {band6} {band7} {band8}')
+        subprocess.check_call(cmd, shell=True)
+
+        with rasterio.open(vrt, 'r+') as dset:
+            dset.descriptions = ('C-VV', 'C-VH', 'C-INC',
+                                 'L-HH', 'L-HV', 'L-INC',
+                                 'NDVI', 'TC')
+
+        print(f'Pushing stack tif for h{h}v{v} ...')
+        src_vrt = vrt
+        dst_tif = f'{vsi_path}/stacks/{year}/all-bands/{sitename}_stacks_{year}_h{h}v{v}.tif'
+        cmd = (f'gdal_translate '
+               f'-ot Float32 '
+               f'-dstnodata nan '
+               f'-of COG '
+               f'-co COMPRESS=LZW '
+               f'--config CPL_VSIL_USE_TEMP_FILE_FOR_RANDOM_WRITE YES '
+               f'{src_vrt} {dst_tif}')
+        subprocess.check_call(cmd, shell=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=('building 8-band stacks that include C-VV, C-VH, C-INC, '
+                     'L-HH, L-HV, L-INC, NDVI, TC')
+    )
+    parser.add_argument('proj_dir', metavar='proj_dir',
+                        type=str,
+                        help='project directory (s3:// or gs:// or local dirs)')
+    parser.add_argument('tiles', metavar='tiles',
+                        type=str,
+                        help=('shp/geojson file that contains tiles for the '
+                              'output stacks'))
+    parser.add_argument('year', metavar='year',
+                        type=str,
+                        help='year')
+    parser.add_argument('--sitename', metavar='sitename',
+                        type=str,
+                        help='site name')
+    args = parser.parse_args()
+
+    # Check proj_dir
+    u = urlparse(args.proj_dir)
+    if u.scheme in ['s3', 'gs']:
+        storage = u.scheme
+        bucket = u.netloc
+        prefix = u.path.strip('/')
+        proj_dir = f'{storage}://{bucket}/{prefix}'
+        vsi_path = f'/vsi{storage}/{bucket}/{prefix}'
+        subprocess.check_call(f'gsutil ls {storage}://{bucket}',
+                              stdout=subprocess.DEVNULL,
+                              shell=True)
     else:
-        band8 = f'/vsis3/{bucket}/{prefix}/modis_tree_cover/{year}/modis_tc_{state}_{year}_h{h}v{v}.tif'
+        storage = 'local'
+        proj_dir = Path(args.proj_dir)
+        vsi_path = f'{proj_dir}'
+        if not proj_dir.is_dir():
+            raise Exception(f'{proj_dir} is not a valid directory path')
 
-    vrt = Path(f'{state}/{year}/{state}_stacks_{year}_h{h}v{v}.vrt')
-    cmd = (f'gdalbuildvrt -overwrite -separate '
-           f'{vrt} {band1} {band2} {band3} {band4} {band5} {band6} {band7} {band8}')
-    subprocess.check_call(cmd, shell=True)
+    build_stacks(storage, proj_dir, vsi_path, args.tiles, args.year)
 
-    with rasterio.open(vrt, 'r+') as dset:
-        dset.descriptions = ('C-VV', 'C-VH', 'C-INC',
-                             'L-HH', 'L-HV', 'L-INC',
-                             'NDVI', 'TC')
-    s3.upload_file(str(vrt), bucket, f'{prefix}/vrts/{year}/{vrt.name}')
 
-    print(f'Pushing stack tif for h{h}v{v} ...')
-    src_vrt = f'/vsis3/servir-public/geotiffs/{country}/vrts/{year}/{state}_stacks_{year}_h{h}v{v}.vrt'
-    dst_tif = f'/vsis3/servir-stacks/{state}/{year}/all-bands/{state}_stacks_{year}_h{h}v{v}.tif'
-    cmd = (f'gdal_translate -ot Float32 -co compress=lzw '
-           f'--config CPL_VSIL_USE_TEMP_FILE_FOR_RANDOM_WRITE YES '
-           f'{src_vrt} {dst_tif}')
-    subprocess.check_call(cmd, shell=True)
+if __name__ == '__main__':
+    main()
