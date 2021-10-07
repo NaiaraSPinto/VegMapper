@@ -126,6 +126,20 @@ def build_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=None):
                    f'{src_vrt} {dst_vrt}')
             subprocess.check_call(cmd, shell=True)
 
+        ############################## PRODES DATA #############################
+        src_tif = '/vsis3/servir-public/calval/brazil/prodes/PDigital2000_2020_AMZ_consolidada.tif'
+        dst_vrt = vrt_dir / f'PRODES-h{h}v{v}.vrt'
+        cmd = (f'gdalwarp -overwrite '
+                f'-t_srs EPSG:{t_epsg} -et 0 '
+                f'-te {g.bounds[0]} {g.bounds[1]} {g.bounds[2]} {g.bounds[3]} '
+                f'-tr {t_res} {t_res} '
+                f'-ot Float32 -wt Float32 '
+                f'-dstnodata nan '
+                f'-r near '
+                f'-co COMPRESS=LZW '
+                f'{src_tif} {dst_vrt}')
+        subprocess.check_call(cmd, shell=True)
+
         band1 = vrt_dir / f'C-VV-{year}-h{h}v{v}.vrt'
         band2 = vrt_dir / f'C-VH-{year}-h{h}v{v}.vrt'
         band3 = vrt_dir / f'C-INC-{year}-h{h}v{v}.vrt'
@@ -137,16 +151,17 @@ def build_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=None):
             band8 = f'{vsi_path}/modis_tree_cover/2019/modis_tc_{sitename}_2019_h{h}v{v}.tif'
         else:
             band8 = f'{vsi_path}/modis_tree_cover/{year}/modis_tc_{sitename}_{year}_h{h}v{v}.tif'
+        band9 = vrt_dir / f'PRODES-h{h}v{v}.vrt'
 
         vrt = vrt_dir / f'{sitename}_stacks_{year}_h{h}v{v}.vrt'
         cmd = (f'gdalbuildvrt -overwrite -separate '
-               f'{vrt} {band1} {band2} {band3} {band4} {band5} {band6} {band7} {band8}')
+               f'{vrt} {band1} {band2} {band3} {band4} {band5} {band6} {band7} {band8} {band9}')
         subprocess.check_call(cmd, shell=True)
 
         with rasterio.open(vrt, 'r+') as dset:
             dset.descriptions = ('C-VV', 'C-VH', 'C-INC',
                                  'L-HH', 'L-HV', 'L-INC',
-                                 'NDVI', 'TC')
+                                 'NDVI', 'TC', 'PRODES')
 
         print(f'Making stack tif for h{h}v{v} ...')
         stack_tif = Path(f'{sitename}_stacks_{year}_h{h}v{v}.tif')
