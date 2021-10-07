@@ -2,6 +2,7 @@
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -147,17 +148,28 @@ def build_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=None):
                                  'L-HH', 'L-HV', 'L-INC',
                                  'NDVI', 'TC')
 
-        print(f'Pushing stack tif for h{h}v{v} ...')
-        src_vrt = vrt
-        dst_tif = f'{vsi_path}/stacks/{year}/all-bands/{sitename}_stacks_{year}_h{h}v{v}.tif'
+        print(f'Making stack tif for h{h}v{v} ...')
+        stack_tif = Path(f'{sitename}_stacks_{year}_h{h}v{v}.tif')
         cmd = (f'gdal_translate '
+               f'-a_nodata -9999 '
                f'-ot Float32 '
-               f'-a_nodata nan '
                f'-of COG '
                f'-co COMPRESS=LZW '
-               f'--config CPL_VSIL_USE_TEMP_FILE_FOR_RANDOM_WRITE YES '
-               f'{src_vrt} {dst_tif}')
+               f'{vrt} {stack_tif}')
         subprocess.check_call(cmd, shell=True)
+
+        if isinstance(proj_dir, Path):
+            dst_tif = proj_dir / f'stacks/{year}/all-bands/{stack_tif}'
+            if not dst_tif.parent.exists():
+                dst_tif.parent.mkdir()
+            stack_tif.rename(dst_tif)
+        elif isinstance(proj_dir, str):
+            dst_tif = f'{proj_dir}/stacks/{year}/all-bands/{stack_tif}'
+            cmd = (f'gsutil cp {stack_tif} {dst_tif}')
+            subprocess.check_call(cmd, shell=True)
+            stack_tif.unlink()
+
+    shutil.rmtree(vrt_dir)
 
 
 def main():
