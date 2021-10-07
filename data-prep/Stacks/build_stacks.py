@@ -198,7 +198,7 @@ def main():
         if not proj_dir.is_dir():
             raise Exception(f'{proj_dir} is not a valid directory path')
 
-    build_stacks(storage, proj_dir, vsi_path, args.tiles, args.year)
+    build_stacks(storage, proj_dir, vsi_path, args.tiles, args.year, args.sitename)
 
 
 if __name__ == '__main__':
