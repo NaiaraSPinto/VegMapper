@@ -152,7 +152,7 @@ def build_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=None):
         dst_tif = f'{vsi_path}/stacks/{year}/all-bands/{sitename}_stacks_{year}_h{h}v{v}.tif'
         cmd = (f'gdal_translate '
                f'-ot Float32 '
-               f'-dstnodata nan '
+               f'-a_nodata nan '
                f'-of COG '
                f'-co COMPRESS=LZW '
                f'--config CPL_VSIL_USE_TEMP_FILE_FOR_RANDOM_WRITE YES '
