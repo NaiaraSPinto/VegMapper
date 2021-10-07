@@ -137,9 +137,16 @@ def proc_tarfile(tarfile, year, proj_dir, vsi_path):
             subprocess.check_call(cmd, shell=True)
             g0_filtered_tif.unlink()
 
+    cmd = (f'gdal_translate '
+           f'-co COMPRESS=LZW '
+           f'--config CPL_VSIL_USE_TEMP_FILE_FOR_RANDOM_WRITE YES '
+           f'{vsi_path}/tarfiles/{tarfile}/{tile}_{yy}_linci{postfix}{suffix} '
+           f'{vsi_path.replace("/vsitar", "")}/{tile}/{tile}_{yy}_INC.tif')
+    subprocess.check_call(cmd, shell=True)
+
     hh_tif = f'{vsi_path.replace("/vsitar", "")}/{tile}/{tile}_{yy}_HH_filtered.tif'
     hv_tif = f'{vsi_path.replace("/vsitar", "")}/{tile}/{tile}_{yy}_HV_filtered.tif'
-    inc_tif = f'{vsi_path}/tarfiles/{tarfile}/{tile}_{yy}_linci{postfix}{suffix}'
+    inc_tif = f'{vsi_path.replace("/vsitar", "")}/{tile}/{tile}_{yy}_INC.tif'
 
     return hh_tif, hv_tif, inc_tif
 
@@ -211,7 +218,7 @@ def main():
 
     # Make VRT for HH, HV, INC
     for var, tif_list in tif_lists.items():
-        vrt = Path(f'alos2_mosaic_{year}_{var}.tif')
+        vrt = Path(f'alos2_mosaic_{year}_{var}.vrt')
         cmd = f'gdalbuildvrt -overwrite {vrt} {" ".join(tif_list)}'
         subprocess.check_call(cmd, shell=True)
         if isinstance(proj_dir, Path):
