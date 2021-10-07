@@ -173,7 +173,7 @@ def main():
                         help=('shp/geojson file that contains tiles for the '
                               'output stacks'))
     parser.add_argument('year', metavar='year',
-                        type=str,
+                        type=int,
                         help='year')
     parser.add_argument('--sitename', metavar='sitename',
                         type=str,
