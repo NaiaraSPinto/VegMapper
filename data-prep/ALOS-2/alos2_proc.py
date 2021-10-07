@@ -108,6 +108,8 @@ def proc_tarfile(tarfile, year, proj_dir, vsi_path):
             try:
                 with rasterio.open(dn_raster) as dset:
                     dn = dset.read(1).astype(np.float64)
+                    mask = dset.read_masks(1)
+                    dn[mask == 0] = np.nan
                     profile = dset.profile
                 break
             except rasterio.errors.RasterioIOError:
