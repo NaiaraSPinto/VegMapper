@@ -92,7 +92,7 @@ def build_condensed_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=No
                     l_rvi = np.round(dset.read(1)*100).astype(np.int16)
                     l_rvi[dset.read_masks(1) == 0] = -9999
 
-            profile.update(dtype=np.int16, count=5, nodata=-9999)
+            profile.update(driver='COG', dtype=np.int16, count=5, nodata=-9999)
 
             cstack_tif = Path(f'{sitename}_condensed_stacks_{year}_h{h}v{v}.tif')
             with rasterio.open(cstack_tif, 'w', **profile) as dset:
