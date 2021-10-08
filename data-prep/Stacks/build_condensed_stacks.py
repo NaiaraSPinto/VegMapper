@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 
 import argparse
-import re
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import geopandas as gpd
@@ -63,7 +61,6 @@ def build_condensed_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=No
         h = gdf_tiles['h'][i]
         v = gdf_tiles['v'][i]
         m = gdf_tiles['mask'][i]
-        g = gdf_tiles['geometry'][i]
 
         if m == 1:
             print(f'Building condensed stacks for h{h}v{v} ...')
@@ -90,26 +87,35 @@ def build_condensed_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=No
                     l_rvi = np.round(dset.read(1)*100).astype(np.int16)
                     l_rvi[dset.read_masks(1) == 0] = -9999
 
-            profile.update(driver='COG', dtype=np.int16, count=4, nodata=-9999)
+            profile.update(dtype=np.int16, count=4, nodata=-9999)
 
-            cstack_tif = Path(f'{sitename}_condensed_stacks_{year}_h{h}v{v}.tif')
-            with rasterio.open(cstack_tif, 'w', **profile) as dset:
+            tmp_tif = Path('tmp.tif')
+            with rasterio.open(tmp_tif, 'w', **profile) as dset:
                 dset.write(c_rvi, 1)
                 dset.write(l_rvi, 2)
                 dset.write(ndvi, 3)
                 dset.write(tc, 4)
                 dset.descriptions = ('C-RVIx100', 'L-RVIx100', 'NDVIx100', 'TC')
 
+            cog_tif = Path(f'{sitename}_condensed_stacks_{year}_h{h}v{v}.tif')
+            cmd = (f'gdal_translate '
+                   f'-of COG '
+                   f'-co COMPRESS=LZW '
+                   f'-co RESAMPLING=NEAREST '
+                   f'tmp_tif {cog_tif}')
+            subprocess.check_call(cmd, shell=True)
+            tmp_tif.unlink()
+
             if isinstance(proj_dir, Path):
-                dst_tif = proj_dir / f'stacks/{year}/condensed/{cstack_tif}'
+                dst_tif = proj_dir / f'stacks/{year}/condensed/{cog_tif}'
                 if not dst_tif.parent.exists():
                     dst_tif.parent.mkdir()
-                cstack_tif.rename(dst_tif)
+                cog_tif.rename(dst_tif)
             elif isinstance(proj_dir, str):
-                dst_tif = f'{proj_dir}/stacks/{year}/condensed/{cstack_tif}'
-                cmd = (f'gsutil cp {cstack_tif} {dst_tif}')
+                dst_tif = f'{proj_dir}/stacks/{year}/condensed/{cog_tif}'
+                cmd = (f'gsutil cp {cog_tif} {dst_tif}')
                 subprocess.check_call(cmd, shell=True)
-                cstack_tif.unlink()
+                cog_tif.unlink()
 
     shutil.rmtree(vrt_dir)
 

@@ -7,9 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-import boto3
 import geopandas as gpd
-
 import rasterio
 from urllib.parse import urlparse
 
@@ -85,7 +83,7 @@ def build_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=None):
 
         vrt = vrt_dir / f'C-{var}-{year}.vrt'
         cmd = (f'gdalbuildvrt -overwrite '
-            f'{vrt} {" ".join(vrt_list)}')
+               f'{vrt} {" ".join(vrt_list)}')
         subprocess.check_call(cmd, shell=True)
 
     for i in gdf_tiles.index:
@@ -165,11 +163,13 @@ def build_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=None):
 
         print(f'Making stack tif for h{h}v{v} ...')
         stack_tif = Path(f'{sitename}_stacks_{year}_h{h}v{v}.tif')
-        cmd = (f'gdal_translate '
-               f'-a_nodata -9999 '
+        cmd = (f'gdalwarp '
+               f'-overwrite '
+               f'-dstnodata -9999 '
                f'-ot Float32 '
                f'-of COG '
                f'-co COMPRESS=LZW '
+               f'-co RESAMPLING=NEAREST '
                f'{vrt} {stack_tif}')
         subprocess.check_call(cmd, shell=True)
 
