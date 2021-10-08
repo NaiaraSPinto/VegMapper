@@ -54,13 +54,11 @@ def build_condensed_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=No
         sitename = f'{proj_dir}'.split('/')[-1]
 
     # Make temporary directories to store VRT files
-    vrt_dir = Path('tmp_vrt')
+    vrt_dir = Path('tmp_condensed_vrt')
     if not vrt_dir.exists():
         vrt_dir.mkdir()
 
     gdf_tiles = gpd.read_file(tiles)
-    t_epsg = gdf_tiles.crs.to_epsg()
-
     for i in gdf_tiles.index:
         h = gdf_tiles['h'][i]
         v = gdf_tiles['v'][i]
@@ -76,7 +74,7 @@ def build_condensed_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=No
             build_rvi_vrt(stack_tif, c_rvi_vrt, (1, 2))
 
             l_rvi_vrt = vrt_dir / f'{sitename}_L-RVI_{year}_h{h}v{v}.vrt'
-            build_rvi_vrt(stack_tif, c_rvi_vrt, (4, 5))
+            build_rvi_vrt(stack_tif, l_rvi_vrt, (4, 5))
 
             with rasterio.open(stack_tif) as dset:
                 ndvi = np.round(dset.read(7)*100).astype(np.int16)
