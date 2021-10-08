@@ -7,9 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-import boto3
 import geopandas as gpd
-
 import rasterio
 from urllib.parse import urlparse
 
