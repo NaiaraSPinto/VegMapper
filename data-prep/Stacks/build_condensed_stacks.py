@@ -102,7 +102,7 @@ def build_condensed_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=No
                    f'-of COG '
                    f'-co COMPRESS=LZW '
                    f'-co RESAMPLING=NEAREST '
-                   f'tmp_tif {cog_tif}')
+                   f'{tmp_tif} {cog_tif}')
             subprocess.check_call(cmd, shell=True)
             tmp_tif.unlink()
 
