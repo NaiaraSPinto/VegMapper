@@ -43,7 +43,7 @@ def get_tiles(aoi):
             tile = f'{ns}{abs(y):02}{ew}{abs(x):03}'
             if aoi_polygon.intersects(p):
                 tile_list.append(tile)
-    print(f'Tiles to be downloaded: ', *tile_list)
+    print(f'\nTiles to be downloaded: ', *tile_list)
     return tile_list
 
 
@@ -56,7 +56,7 @@ def download_tiles(tile_list, year, dst, jaxa_username, jaxa_password):
             # ALOS-2
             file = f'{tile}_{str(year)[2:]}_MOS_F02DAR.tar.gz'
 
-        print(f'Downloading {i+1} / {len(tile_list)} tiles ...')
+        print(f'\nDownloading {i+1} / {len(tile_list)} tiles ...')
 
         ns = tile[0]    # N or S
         ew = tile[3]    # E or W
@@ -83,29 +83,32 @@ def download_tiles(tile_list, year, dst, jaxa_username, jaxa_password):
                f'dir_gz/{year}/{grid}/{file}')
         cmd = f'wget --user {jaxa_username} --password {jaxa_password} '
         if isinstance(dst, Path):
-            dst = dst / f'{year}/tarfiles'
-            if not dst.exists():
-                dst.mkdir(parents=True)
             cmd = cmd + f'-c -P {dst} {url}'
+            subprocess.call(cmd, shell=True)
         elif isinstance(dst, str):
-            cmd = cmd + f'-O- {url} | gsutil cp - {dst}/{year}/tarfiles/{file}'
-        subprocess.call(cmd, shell=True)
+            # cmd = cmd + f'-O- {url} | gsutil cp - {dst}/{file}'
+            cmd = cmd + f'-c -P . {url}'
+            subprocess.call(cmd, shell=True)
+            cmd = f'gsutil cp {file} {dst}/{file}'
+            subprocess.call(cmd, shell=True)
+            Path(file).unlink()
 
 
 def main():
     parser = argparse.ArgumentParser(
         description='download ALOS/ALOS-2 Mosaic data from JAXA website'
     )
+    parser.add_argument('proj_dir', metavar='proj_dir',
+                        type=str,
+                        help=('project directory (s3:// or gs:// or local dirs); '
+                              'ALOS/ALOS-2 mosaic data (.tar.gz) will be stored '
+                              'under proj_dir/alos2_mosaic/year/tarfiles/'))
     parser.add_argument('aoi', metavar='aoi',
                         type=str,
                         help='shp/geojson of area of interest (AOI)')
     parser.add_argument('year', metavar='year',
                         type=int,
                         help=('year'))
-    parser.add_argument('dst', metavar='dst',
-                        type=str,
-                        help=('destination location (s3:// or gs:// or local paths); '
-                              'downloaded data will be stored under dst/year/tarfiles/'))
     args = parser.parse_args()
 
     # Get JAXA login info
@@ -129,24 +132,28 @@ def main():
     if args.year not in available_years:
         raise Exception(f'ALOS/ALOS-2 data is not available for year {args.year}')
 
-    # Check dst
-    u = urlparse(args.dst)
+    # Check proj_dir
+    u = urlparse(args.proj_dir)
     if u.scheme == 's3' or u.scheme == 'gs':
-        dstloc = u.scheme
+        storage = u.scheme
         bucket = u.netloc
         prefix = u.path.strip('/')
-        dst = f'{dstloc}://{bucket}/{prefix}'
-        subprocess.check_call(f'gsutil ls {dstloc}://{bucket}/{prefix}',
+        proj_dir = f'{storage}://{bucket}/{prefix}'
+        dst_dir = f'{storage}://{bucket}/{prefix}/alos2_mosaic/{args.year}/tarfiles'
+        subprocess.check_call(f'gsutil ls {storage}://{bucket}',
                               stdout=subprocess.DEVNULL,
                               shell=True)
     else:
-        dstloc = 'local'
-        dst = Path(args.dst)
-        if not dst.is_dir():
-            raise Exception(f'{args.dst} is not a valid directory path')
+        storage = 'local'
+        proj_dir = Path(args.proj_dir)
+        if not proj_dir.is_dir():
+            raise Exception(f'{proj_dir} is not a valid directory path')
+        dst_dir = proj_dir / f'alos2_mosaic/{args.year}/tarfiles'
+        if not dst_dir.exists():
+            dst_dir.mkdir(parents=True)
 
     tile_list = get_tiles(args.aoi)
-    download_tiles(tile_list, args.year, dst, jaxa_username, jaxa_password)
+    download_tiles(tile_list, args.year, dst_dir, jaxa_username, jaxa_password)
 
 
 if __name__ == '__main__':

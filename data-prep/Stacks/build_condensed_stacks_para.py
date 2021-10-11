@@ -78,6 +78,8 @@ def build_condensed_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=No
                 ndvi[dset.read_masks(7) == 0] = -9999
                 tc = dset.read(8).astype(np.int16)
                 tc[dset.read_masks(8) == 0] = -9999
+                prodes = dset.read(9).astype(np.int16)
+                prodes[dset.read_masks(9) == 0] = -9999
                 profile = dset.profile
             with rasterio.Env(GDAL_VRT_ENABLE_PYTHON=True):
                 with rasterio.open(c_rvi_vrt) as dset:
@@ -87,7 +89,7 @@ def build_condensed_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=No
                     l_rvi = np.round(dset.read(1)*100).astype(np.int16)
                     l_rvi[dset.read_masks(1) == 0] = -9999
 
-            profile.update(dtype=np.int16, count=4, nodata=-9999)
+            profile.update(dtype=np.int16, count=5, nodata=-9999)
 
             tmp_tif = Path('tmp.tif')
             with rasterio.open(tmp_tif, 'w', **profile) as dset:
@@ -95,7 +97,8 @@ def build_condensed_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=No
                 dset.write(l_rvi, 2)
                 dset.write(ndvi, 3)
                 dset.write(tc, 4)
-                dset.descriptions = ('C-RVIx100', 'L-RVIx100', 'NDVIx100', 'TC')
+                dset.write(prodes, 5)
+                dset.descriptions = ('C-RVIx100', 'L-RVIx100', 'NDVIx100', 'TC', 'PRODES')
 
             cog_tif = Path(f'{sitename}_condensed_stacks_{year}_h{h}v{v}.tif')
             cmd = (f'gdal_translate '
