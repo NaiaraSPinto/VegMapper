@@ -84,9 +84,14 @@ def download_tiles(tile_list, year, dst, jaxa_username, jaxa_password):
         cmd = f'wget --user {jaxa_username} --password {jaxa_password} '
         if isinstance(dst, Path):
             cmd = cmd + f'-c -P {dst} {url}'
+            subprocess.call(cmd, shell=True)
         elif isinstance(dst, str):
-            cmd = cmd + f'-O- {url} | gsutil cp - {dst}/{file}'
-        subprocess.call(cmd, shell=True)
+            # cmd = cmd + f'-O- {url} | gsutil cp - {dst}/{file}'
+            cmd = cmd + f'-c -P . {url}'
+            subprocess.call(cmd, shell=True)
+            cmd = f'gsutil cp {file} {dst}/{file}'
+            subprocess.call(cmd, shell=True)
+            Path(file).unlink()
 
 
 def main():

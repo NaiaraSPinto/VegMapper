@@ -7,6 +7,8 @@ Sentinel/s1_metadata_summary.py
 Sentinel/s1_proc.py
 Sentinel/s1_remove_edges.py
 Sentinel/s1_submit_hyp3_jobs.py
+Stacks/build_stacks.py
+Stacks/build_condensed_stacks.py
 Utils/calc_vrt_stats.py
 Utils/prep_tiles.py
 Utils/remove_edges.py
