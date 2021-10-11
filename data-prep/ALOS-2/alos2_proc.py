@@ -221,7 +221,7 @@ def main():
     print(f'\nProcessing ALOS-2 yearly mosaic data in {proj_dir}/alos2_mosaic/{year}/tarfiles ...')
     for tarfile in tarfile_list:
         if tarfile_pattern.fullmatch(tarfile):
-            hh_tif, hv_tif, inc_tif = proc_tarfile(tarfile, year, proj_dir, vsi_path, args.win_size, args.num_looks)
+            hh_tif, hv_tif, inc_tif = proc_tarfile(tarfile, year, proj_dir, vsi_path, args.filter_win_size, args.filter_num_looks)
             tif_lists['HH'].append(hh_tif)
             tif_lists['HV'].append(hv_tif)
             tif_lists['INC'].append(inc_tif)
