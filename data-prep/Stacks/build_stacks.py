@@ -60,7 +60,7 @@ def build_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=None):
             vrt = vrt_dir / f'C-{var}-{year}-{epsg}.vrt'
             tif_list = []
             for granule in granule_list:
-                tif = f'{vsi_path}/sentinel_1/{year}/{granule}/{year}_{granule}_{var}.tif'
+                tif = f'{vsi_path}/sentinel_1/{year}/{granule}/{year}_{granule}_{var}_mean.tif'
                 tif_list.append(tif)
             cmd = (f'gdalbuildvrt -overwrite '
                 f'{vrt} {" ".join(tif_list)}')
