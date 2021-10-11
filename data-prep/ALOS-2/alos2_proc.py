@@ -77,7 +77,7 @@ def enhanced_lee_filter(img, win_size, num_looks=1, nodata=None):
     return img_filtered.astype(src_dtype)
 
 
-def proc_tarfile(tarfile, year, proj_dir, vsi_path):
+def proc_tarfile(tarfile, year, proj_dir, vsi_path, lee_win_size=5, lee_num_looks=1):
     print(f'\nProcessing {tarfile} ...')
 
     tile = tarfile.split('_')[0]
@@ -119,7 +119,7 @@ def proc_tarfile(tarfile, year, proj_dir, vsi_path):
         g0 = dn**2 * 10**(-83/10)
 
         # Filter gamma0 using enhanced Lee filter
-        g0_filtered = enhanced_lee_filter(g0, 5, num_looks=1, nodata=np.nan)
+        g0_filtered = enhanced_lee_filter(g0, lee_win_size, lee_num_looks, nodata=np.nan)
 
         # Write to GeoTIFF
         profile.update(driver='GTiff', dtype=np.float32, nodata=np.nan)
@@ -165,6 +165,14 @@ def main():
     parser.add_argument('year', metavar='year',
                         type=str,
                         help='year')
+    parser.add_argument('--filter_win_size', metavar='win_size',
+                        type=int,
+                        default=5,
+                        help='Filter window size')
+    parser.add_argument('--filter_num_looks', metavar='num_looks',
+                        type=int,
+                        default=1,
+                        help='Filter number of looks')
     args = parser.parse_args()
     year = int(args.year)
 
@@ -213,7 +221,7 @@ def main():
     print(f'\nProcessing ALOS-2 yearly mosaic data in {proj_dir}/alos2_mosaic/{year}/tarfiles ...')
     for tarfile in tarfile_list:
         if tarfile_pattern.fullmatch(tarfile):
-            hh_tif, hv_tif, inc_tif = proc_tarfile(tarfile, year, proj_dir, vsi_path)
+            hh_tif, hv_tif, inc_tif = proc_tarfile(tarfile, year, proj_dir, vsi_path, args.win_size, args.num_looks)
             tif_lists['HH'].append(hh_tif)
             tif_lists['HV'].append(hv_tif)
             tif_lists['INC'].append(inc_tif)
