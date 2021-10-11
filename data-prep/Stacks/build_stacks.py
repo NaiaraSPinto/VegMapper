@@ -45,7 +45,7 @@ def build_stacks(storage, proj_dir, vsi_path, tiles, year, sitename=None):
     # Group granules by EPSG codes (UTM zones)
     granules = {}
     for granule in available_granules:
-        vv_tif = f'{proj_dir}/sentinel_1/{year}/{granule}/{year}_{granule}_VV.tif'
+        vv_tif = f'{proj_dir}/sentinel_1/{year}/{granule}/{year}_{granule}_VV_mean.tif'
         with rasterio.open(vv_tif) as dset:
             epsg = dset.crs.to_epsg()
         if epsg in granules.keys():
