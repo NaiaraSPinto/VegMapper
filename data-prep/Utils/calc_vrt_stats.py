@@ -50,6 +50,15 @@ def {args.stat}(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_ys
     div[div == 0] = 1
     out_ar[:] = np.sum(in_ar, axis=0, dtype=in_ar[0].dtype) / div
 """
+elif args.stat == 'variance':
+    pixfun = f"""
+import numpy as np
+def {args.stat}(in_ar, out_ar, xoff, yoff, xsize, ysize, raster_xsize, raster_ysize, buf_radius, gt, **kwargs):
+    in_ar = np.array(in_ar)
+    in_ar[in_ar == 0] = np.nan
+
+    out_ar[:] = np.nanvar(in_ar, axis=-1, dtype=in_ar[0].dtype)
+"""
 else:
     raise Exception(f'{args.stat} is currently not supported.')
 
