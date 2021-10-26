@@ -18,7 +18,7 @@ parser.add_argument('vrtpath', metavar='vrtpath',
                     help='VRT path')
 parser.add_argument('stat', metavar='stat',
                     type=str,
-                    choices=['mean'],
+                    choices=['mean', 'variance'],
                     help='statistic to be calculated')
 args = parser.parse_args()
 
