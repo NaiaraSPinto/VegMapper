@@ -75,8 +75,8 @@ def main():
     parser.add_argument('aoi_name', metavar='aoi_name',
                         type=str,
                         help='name of area of interest (AOI)')
-    parser.add_argument('aoishp',
-                       metavar='aoishp',
+    parser.add_argument('aoi_shp',
+                       metavar='aoi_shp',
                        type=Path,
                        help='shp/geojson of AOI')
     parser.add_argument('t_size', metavar='tile_size',
@@ -84,9 +84,7 @@ def main():
                         help=('tile size in meters'))
     args = parser.parse_args()
 
-    shp_boundary = args.aoishp
-
-    get_tiles(shp_boundary, args.t_size, args.aoi_name.lower())
+    get_tiles(args.aoi_shp, args.t_size, args.aoi_name.lower())
 
 
 if __name__ == '__main__':
