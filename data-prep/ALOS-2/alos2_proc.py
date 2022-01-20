@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -86,9 +87,11 @@ def proc_tarfile(tarfile, year, proj_dir, vsi_path, lee_win_size=5, lee_num_look
     if year < 2014:
         # ALOS
         postfix = ''
+        launch_date = date(2006, 1, 24)
     else:
         # ALOS-2
         postfix = '_F02DAR'
+        launch_date = date(2014, 5, 24)
 
     if year < 2019:
         suffix = ''
@@ -146,11 +149,28 @@ def proc_tarfile(tarfile, year, proj_dir, vsi_path, lee_win_size=5, lee_num_look
            f'{vsi_path.replace("/vsitar", "")}/{tile}/{tile}_{yy}_INC.tif')
     subprocess.check_call(cmd, shell=True)
 
+    cmd = (f'gdal_translate '
+           f'-ot Int16 '
+           f'-co COMPRESS=LZW '
+           f'--config CPL_VSIL_USE_TEMP_FILE_FOR_RANDOM_WRITE YES '
+           f'{vsi_path}/tarfiles/{tarfile}/{tile}_{yy}_date{postfix}{suffix} '
+           f'{vsi_path.replace("/vsitar", "")}/{tile}/{tile}_{yy}_DOY.tif')
+    subprocess.check_call(cmd, shell=True)
+
     hh_tif = f'{vsi_path.replace("/vsitar", "")}/{tile}/{tile}_{yy}_HH_filtered.tif'
     hv_tif = f'{vsi_path.replace("/vsitar", "")}/{tile}/{tile}_{yy}_HV_filtered.tif'
     inc_tif = f'{vsi_path.replace("/vsitar", "")}/{tile}/{tile}_{yy}_INC.tif'
+    doy_tif = f'{vsi_path.replace("/vsitar", "")}/{tile}/{tile}_{yy}_DOY.tif'
 
-    return hh_tif, hv_tif, inc_tif
+    with rasterio.open(doy_tif, 'r+') as dset:
+        days_after_launch = dset.read(1)
+        mask = dset.read_masks(1)
+        doy = days_after_launch + (launch_date - date(year, 1, 1)).days + 1
+        dset.nodata = -9999
+        doy[mask == 0] = -9999
+        dset.write(doy, 1)
+
+    return hh_tif, hv_tif, inc_tif, doy_tif
 
 
 def main():
@@ -215,18 +235,20 @@ def main():
         'HH': [],
         'HV': [],
         'INC': [],
+        'DOY': [],
     }
 
     # Processing mosaic data and get list of processed .tif
     print(f'\nProcessing ALOS-2 yearly mosaic data in {proj_dir}/alos2_mosaic/{year}/tarfiles ...')
     for tarfile in tarfile_list:
         if tarfile_pattern.fullmatch(tarfile):
-            hh_tif, hv_tif, inc_tif = proc_tarfile(tarfile, year, proj_dir, vsi_path, args.filter_win_size, args.filter_num_looks)
+            hh_tif, hv_tif, inc_tif, doy_tif = proc_tarfile(tarfile, year, proj_dir, vsi_path, args.filter_win_size, args.filter_num_looks)
             tif_lists['HH'].append(hh_tif)
             tif_lists['HV'].append(hv_tif)
             tif_lists['INC'].append(inc_tif)
+            tif_lists['DOY'].append(doy_tif)
 
-    # Make VRT for HH, HV, INC
+    # Make VRT for HH, HV, INC, DOY
     for var, tif_list in tif_lists.items():
         vrt = Path(f'alos2_mosaic_{year}_{var}.vrt')
         cmd = f'gdalbuildvrt -overwrite {vrt} {" ".join(tif_list)}'
