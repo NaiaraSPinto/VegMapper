@@ -1,24 +1,27 @@
-name: data-prep
+# To use:
+#
+#   $ conda env create -f environment.yml
+#   $ conda activate vegmapper
+#
+name: vegmapper
 channels:
   - conda-forge
-  - defaults
 dependencies:
   - boto3
+  - certifi
+  - dask
   - earthengine-api
   - gdal
   - geopandas
-  - git
   - gsutil
+  - h5py
   - hyp3_sdk
   - jupyterlab
   - numpy
   - opencv
   - pandas
-  - pip
   - python=3.9
   - rasterio
   - requests
-  - tmux
   - unidecode
-  - vim
   - wget
