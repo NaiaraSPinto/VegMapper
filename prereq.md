@@ -27,9 +27,6 @@
     (vegmapper) $
     ```
 
-1. Credentials of EarthData/JAXA/GEE
-2. Add Lemar’s instruction of opening a notebook on EC2
-
 ### Acquire credentials for data
 1. NASA Earthdata & ASF Vertax
     - Register an account at [https://urs.earthdata.nasa.gov](https://urs.earthdata.nasa.gov)
