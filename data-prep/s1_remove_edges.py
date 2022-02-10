@@ -16,7 +16,7 @@ def s1_remove_edges(srcloc, path_frame_dir, year, path_frame, edge_depth):
     vv = f'{path_frame_dir}/{year}_{path_frame}_VV_mean.tif'
     vv_edge_removed = Path(f'{year}_{path_frame}_VV_mean.tif')
     ls = f'{path_frame_dir}/{year}_{path_frame}_LS_mean.tif'
-    subprocess.check_call((f'remove_edges.py {vv} {vv_edge_removed} '
+    subprocess.check_call((f'python remove_edges.py {vv} {vv_edge_removed} '
                            f'--maskfile {ls} '
                            f'--lr_only --edge_depth {edge_depth}'),
                            shell=True)

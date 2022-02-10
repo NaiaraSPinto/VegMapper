@@ -37,13 +37,13 @@ def s1_proc(storage, proj_dir, year, m1, m2, path_frame=None):
 
         for layer in ['VV', 'VH', 'INC', 'LS']:
             # Build VRT
-            subprocess.check_call(f's1_build_vrt.py {proj_dir}/sentinel_1 {year}_{path_frame} {layer} --m1 {m1} --m2 {m2}', shell=True)
+            subprocess.check_call(f'python s1_build_vrt.py {proj_dir}/sentinel_1 {year}_{path_frame} {layer} --m1 {m1} --m2 {m2}', shell=True)
             # Calculate temporal mean
             vrtpath = f'{proj_dir}/sentinel_1/{year}/{path_frame}/{year}_{path_frame}_{layer}.vrt'
-            subprocess.check_call(f'calc_vrt_stats.py {vrtpath} mean', shell=True)
+            subprocess.check_call(f'python calc_vrt_stats.py {vrtpath} mean', shell=True)
 
         # Remove left and right edge pixels
-        subprocess.check_call(f's1_remove_edges.py {proj_dir}/sentinel_1/{year}/{path_frame}', shell=True)
+        subprocess.check_call(f'python s1_remove_edges.py {proj_dir}/sentinel_1/{year}/{path_frame}', shell=True)
 
         print(f'\nDone processing {year}_{path_frame}.')
 
