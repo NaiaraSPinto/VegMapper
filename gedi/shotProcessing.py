@@ -18,7 +18,6 @@ def rangeCalculator(elevList, sd, mean):
     else:
         return -99
 
-
 gedi_dfs = []
 
 f = open("h5S3files.txt", "r")
@@ -26,6 +25,7 @@ f = open("h5S3files.txt", "r")
 for h5file in f.readlines():
     h5file = h5file.strip()
     cpS3url = "aws s3 cp s3://servir-public/gedi/peru/" + h5file + " ./"
+    
     print("DOWNLOAD FILE: " + cpS3url)
     os.system(cpS3url)
     ###READ DATA
@@ -35,6 +35,7 @@ for h5file in f.readlines():
     except Exception as e:
         print(e)
         continue
+
     beamNames = [g for g in gediL2A.keys() if g.startswith('BEAM')]
     gediL2A_objs = []
     gediL2A.visit(gediL2A_objs.append)                                           # Retrieve list of datasets
@@ -113,6 +114,7 @@ for h5file in f.readlines():
             print("EXCEPTION: ", e)
             skipFlag = True
 
+
     if not skipFlag:
         raw_df = pd.concat(beam_dfs)
         filtered = raw_df[raw_df.sensitivity >= 0.9] #& (raw_df.Quality == 1)
@@ -122,11 +124,7 @@ for h5file in f.readlines():
         filtered['elev_mean'] = elevs.mean() #calculate mean of elevs
         filtered['elev_range'] = filtered.apply(lambda x: rangeCalculator([x['elev1'], x['elev2'], x['elev3'], x['elev4'], x['elev5'], x['elev6']], x['elev_sd'], x['elev_mean']), axis = 1)
         
-        #GEDI_DF = filtered[(filtered.elev1 < filtered.elev_sd+2 and filtered.elev1 > filtered.elev_sd-2) and (filtered.elev2 < filtered.elev_sd+2 and filtered.elev2 > filtered.elev_sd-2) and
-         #        (filtered.elev3 < filtered.elev_sd+2 and filtered.elev3 > filtered.elev_sd-2) and (filtered.elev4 < filtered.elev_sd+2 and filtered.elev4 > filtered.elev_sd-2) and
-         #        (filtered.elev5 < filtered.elev_sd+2 and filtered.elev5 > filtered.elev_sd-2) and (filtered.elev6 < filtered.elev_sd+2 and filtered.elev6 > filtered.elev_sd-2)]
         GEDI_DF = filtered[filtered.elev_range < 2]
-        #GEDI_DF = filter(filterOutliers, filtered)
 
         GEDI_DF = GEDI_DF[GEDI_DF.rh95 > 0]
         
@@ -141,5 +139,4 @@ for h5file in f.readlines():
         os.remove(h5file)
     except:
         continue
-
 
