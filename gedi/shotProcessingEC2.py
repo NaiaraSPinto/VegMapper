@@ -7,16 +7,12 @@ import itertools
 import statistics
 import time
 
-pd.options.mode.chained_assignment = None
-import warnings
-warnings.filterwarnings("ignore")
-
-def rangeCalculator(elevList, sd, mean):
-    elevList = [item for item in elevList if item <= (mean + (2*sd)) and item >= (mean - (2*sd)) ]
-    if elevList:
-        return max(elevList) - min(elevList)
-    else:
-        return -99
+def filterOutliers(row): 
+    elevs = [row.elev1, row.elev2, row.elev3, row.elev4, row.elev5, row.elev6]
+    sd = statistics.pstdev(elevs)
+    elevRange = max(elevs) - min(elevs)
+    return all((x < (sd + 2) and x > (sd - 2)) for x in elevs) and elevRange < 2
+        
 
 gedi_dfs = []
 
@@ -25,17 +21,11 @@ f = open("h5S3files.txt", "r")
 for h5file in f.readlines():
     h5file = h5file.strip()
     cpS3url = "aws s3 cp s3://servir-public/gedi/peru/" + h5file + " ./"
-    
-    print("DOWNLOAD FILE: " + cpS3url)
+    print(cpS3url)
     os.system(cpS3url)
     ###READ DATA
     skipFlag = False
-    try:
-        gediL2A = h5py.File(h5file, 'r')
-    except Exception as e:
-        print(e)
-        continue
-
+    gediL2A = h5py.File(h5file, 'r')  
     beamNames = [g for g in gediL2A.keys() if g.startswith('BEAM')]
     gediL2A_objs = []
     gediL2A.visit(gediL2A_objs.append)                                           # Retrieve list of datasets
@@ -114,29 +104,28 @@ for h5file in f.readlines():
             print("EXCEPTION: ", e)
             skipFlag = True
 
-
+    print("SKIP FLAG: ", skipFlag)
     if not skipFlag:
         raw_df = pd.concat(beam_dfs)
-        filtered = raw_df[raw_df.sensitivity >= 0.9] #& (raw_df.Quality == 1)
+        filtered = raw_df[(raw_df.sensitivity >= 0.9)  & (raw_df.solar_elev < 0) ] #& (raw_df.Quality == 1)
         
         elevs = pd.concat([filtered.elev1, filtered.elev2, filtered.elev3, filtered.elev4, filtered.elev5, filtered.elev6])
         filtered['elev_sd'] = elevs.std()
-        filtered['elev_mean'] = elevs.mean() #calculate mean of elevs
-        filtered['elev_range'] = filtered.apply(lambda x: rangeCalculator([x['elev1'], x['elev2'], x['elev3'], x['elev4'], x['elev5'], x['elev6']], x['elev_sd'], x['elev_mean']), axis = 1)
-        
+        filtered['elev_max'] = filtered[['elev1', 'elev2', 'elev3', 'elev4', 'elev5', 'elev6']].max(axis=1) 
+        filtered['elev_min'] = filtered[['elev1', 'elev2', 'elev3', 'elev4', 'elev5', 'elev6']].min(axis=1)
+
+        filtered['elev_range'] = filtered.elev_max - filtered.elev_min
+        #GEDI_DF = filtered[(filtered.elev1 < filtered.elev_sd+2 and filtered.elev1 > filtered.elev_sd-2) and (filtered.elev2 < filtered.elev_sd+2 and filtered.elev2 > filtered.elev_sd-2) and
+         #        (filtered.elev3 < filtered.elev_sd+2 and filtered.elev3 > filtered.elev_sd-2) and (filtered.elev4 < filtered.elev_sd+2 and filtered.elev4 > filtered.elev_sd-2) and
+         #        (filtered.elev5 < filtered.elev_sd+2 and filtered.elev5 > filtered.elev_sd-2) and (filtered.elev6 < filtered.elev_sd+2 and filtered.elev6 > filtered.elev_sd-2)]
         GEDI_DF = filtered[filtered.elev_range < 2]
+        #GEDI_DF = filter(filterOutliers, filtered)
 
+        print(GEDI_DF)
         GEDI_DF = GEDI_DF[GEDI_DF.rh95 > 0]
-        
-        csv_file = "filtered_" + h5file[:-3]+".csv"
-        print("CREATING CSV: " + csv_file)
-        GEDI_DF.to_csv(csv_file)
-        cp_csv = "aws s3 cp " + csv_file + " s3://servir-public/gedi/peru/" + csv_file
-        print("COPY CSV TO S3: " + cp_csv)
-        os.system(cp_csv)
-        os.remove(csv_file)
-    try:
-        os.remove(h5file)
-    except:
-        continue
+        gedi_dfs.append(GEDI_DF)
+    os.remove(h5file)
 
+df = pd.concat(gedi_dfs)
+
+df.to_csv("processedShots.csv", index = False)
