@@ -15,9 +15,9 @@ setup (
     #   libraries = [clib],
     #   cmdclass = {"build_ext": build_ext},
     #   ext_modules = [ext],
-    scripts = [
-        'data-prep/s1_build_vrt.py',
-        'data-prep/calc_vrt_stats.py',
-        'data-prep/s1_remove_edges.py',
-    ]
+    #scripts = [
+    #    'data-prep/s1_build_vrt.py',
+    #    'data-prep/calc_vrt_stats.py',
+    #    'data-prep/s1_remove_edges.py',
+    #]
 )
