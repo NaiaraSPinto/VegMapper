@@ -12,7 +12,7 @@ import numpy as np
 import rasterio
 
 import vegmapper
-from vegmapper import ProjDir
+from vegmapper.pathurl import ProjDir
 
 
 def proc_tarfile(tarfile, year, proj_dir, vsi_path, lee_win_size=5, lee_num_looks=1):

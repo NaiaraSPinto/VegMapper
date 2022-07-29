@@ -12,7 +12,7 @@ import numpy as np
 import requests
 from shapely.geometry import Polygon
 
-from vegmapper import ProjDir
+from vegmapper.pathurl import ProjDir
 
 
 def get_tiles(aoi):

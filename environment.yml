@@ -7,9 +7,8 @@ name: vegmapper
 channels:
   - conda-forge
 dependencies:
+  - asf_search
   - boto3
-  - certifi
-  - dask
   - earthengine-api
   - gdal
   - geopandas
@@ -23,5 +22,4 @@ dependencies:
   - python=3.9
   - rasterio
   - requests
-  - unidecode
-  - wget
+  - s3fs
