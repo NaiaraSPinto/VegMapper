@@ -1,92 +1,10 @@
 # VegMapper
 Land cover classification using remote sensing observations
 
-## EC2 Set Up ##
-
-To bring up conda:
-```
-/opt/miniconda3/bin/conda init bash
-source ~/.bashrc
-```
-
-Now you should see (base) for the base env in front:
-```
-(base) [username@ip-xxx-xxx-xxx-xxx ~]$
-```
-
-Activate the "data-prep" env:
-```
-(base) [username@ip-xxx-xxx-xxx-xxx ~]$ conda activate data-prep
-(data-prep) [username@ip-xxx-xxx-xxx-xxx ~]$
-```
-
-Clone VegMapper to your home directory:
-```
-(data-prep) [username@ip-xxx-xxx-xxx-xxx ~]$ git clone https://github.com/NaiaraSPinto/VegMapper.git
-```
-
-## Sentinel-1 ##
-### Submit Hyp3 processing jobs and compute temporal average ###
-```
-(data-prep) [username@ip-xxx-xxx-xxx-xxx ~]$ cd VegMapper/data-prep/Sentinel/automate
-```
-Edit "config.ini" and upload the granules csv to this directory as needed
-```
-(data-prep) [username@ip-xxx-xxx-xxx-xxx automate]$ python automation.py config.ini
-```
-
-### Remove S1 right/left edges ###
-```
-(data-prep) [username@ip-xxx-xxx-xxx-xxx automate]$ cd ..
-(data-prep) [username@ip-xxx-xxx-xxx-xxx Sentinel]$ python remove_s1_edges.py country state year
-```
-Supported **(country, state)** are (peru, ucayali) and (brazil, para) now.
-
-## ALOS-2 ##
-```
-(data-prep) [username@ip-xxx-xxx-xxx-xxx Sentinel]$ cd ../ALOS-2
-(data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ python download_alos2_mosaic.py country state year
-(data-prep) [username@ip-xxx-xxx-xxx-xxx Sentinel]$ conda activate treepeople
-(treepeople) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ python filter_alos2_mosaic.py country state year
-(treepeople) [username@ip-xxx-xxx-xxx-xxx Sentinel]$ conda activate data-prep
-(data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ python proc_alos2_tiles.py country state year
-```
-
-## Landsat NDVI & MODIS TC (GEE) ##
-These don't need to be run on EC2, but they require using a Google Earth Engine account and enough Google Drive space.
-
-To set up GEE Python API:
-```
-python
->>> import ee
->>> ee.Authenticate()
-```
-This will bring up a browser window and just follow the steps to complete the authentication for your Google account.
-After authentication, 
-```
->>> ee.Initialize()
-```
-
-For Landsat:
-```
-python gee_export_landsat.py state year
-```
-
-For MODIS:
-```
-python gee_export_modis.py state year
-```
-
-After all processed tiles are loaded to your Google Drive, download them locally and upload to S3 bucket.
-
-## Build VRTs and push stack geotiff to servir-stacks ##
-```
-(data-prep) [username@ip-xxx-xxx-xxx-xxx ALOS-2]$ cd ../Stacks
-(data-prep) [username@ip-xxx-xxx-xxx-xxx Stacks]$ python build_stacks.py country state year
-```
-
-## Build RVI VRTs and generate condensed stacks ##
-```
-(data-prep) [username@ip-xxx-xxx-xxx-xxx Stacks]$ python build_rvi_vrt.py country state year
-(data-prep) [username@ip-xxx-xxx-xxx-xxx Stacks]$ python build_condensed_stacks.py country state year
-```
+Copyright (c) 2019-2022, California Institute of Technology ("Caltech"). U.S. Government sponsorship acknowledged.
+All rights reserved.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+• Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+• Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+• Neither the name of Caltech nor its operating division, the Jet Propulsion Laboratory, nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
