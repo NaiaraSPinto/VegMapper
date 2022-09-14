@@ -6,49 +6,65 @@ import glob
 import itertools
 import statistics
 import time
+#import gsutil
 
 pd.options.mode.chained_assignment = None
 import warnings
 warnings.filterwarnings("ignore")
 
+h5FilesToProcess = "testCSVFiles.txt"
+sourceDirectory = "s3://servir-public/gedi/peru/"
+destinationFilePrefix = "TEST_"
+destinationDirectory = "s3://servir-public/gedi/peru/"
+outputFileName = "FILTERED_CSV.csv"
+
+
+def saveFilteredData(GEDI_DF, h5file, csv_files):
+  #save final filtered dataframe to a csv file in the destination directory with the correct prefix
+  csv_file = destinationFilePrefix + h5file[:-3]+".csv"
+  csv_files.append(csv_file)
+  print("CREATING CSV: " + csv_file)
+  GEDI_DF.to_csv(csv_file)
+  cp_csv = "aws s3 cp " + csv_file + " " + destinationDirectory + csv_file
+  print("COPY CSV TO S3: " + cp_csv)
+  os.system(cp_csv)
+  os.remove(csv_file)
+  try:
+    os.remove(h5file)
+  except Exception as e:
+    print("EXCEPTION: ,", e)
+
+
+def filterBeamData(all_beam_dfs, h5file, csv_files):
+  try:
+    filtered =  all_beam_dfs[all_beam_dfs.sensitivity >= 0.9] #sensitivity > 90%
+          
+    #filter based on elevation
+    elevs = pd.concat([filtered.elev1, filtered.elev2, filtered.elev3, filtered.elev4, filtered.elev5, filtered.elev6])
+    filtered['elev_sd'] = elevs.std()
+    filtered['elev_mean'] = elevs.mean() #calculate mean of elevs
+    filtered['elev_range'] = filtered.apply(lambda x: rangeCalculator([x['elev1'], x['elev2'], x['elev3'], x['elev4'], x['elev5'], x['elev6']], x['elev_sd'], x['elev_mean']), axis = 1)
+          
+    GEDI_DF = filtered[abs(filtered.elev_range) < 2] #only select rows that have valid ranges
+
+    GEDI_DF = GEDI_DF[GEDI_DF.rh95 > 0] ## excludes ground points
+  except Exception as e:
+    print("EXCEPTION: ", e)
+    return
+  else:
+    saveFilteredData(GEDI_DF, h5file, csv_files)
+
+
+## returns the range between valid elevations (elevations that are within 2SD of the mean)
 def rangeCalculator(elevList, sd, mean):
     elevList = [item for item in elevList if item <= (mean + (2*sd)) and item >= (mean - (2*sd)) ]
     if elevList:
         return max(elevList) - min(elevList)
-    else:
-        return -99
+    else: 
+        ##all elevations are abnormal, return -99 to indicate data from this row should not be included in analysis
+        return 99
 
-gedi_dfs = []
-
-f = open("h5S3files.txt", "r")
-
-for h5file in f.readlines():
-    h5file = h5file.strip()
-    cpS3url = "aws s3 cp s3://servir-public/gedi/peru/" + h5file + " ./"
-    
-    print("DOWNLOAD FILE: " + cpS3url)
-    os.system(cpS3url)
-    ###READ DATA
-    skipFlag = False
-    try:
-        gediL2A = h5py.File(h5file, 'r')
-    except Exception as e:
-        print(e)
-        continue
-
-    beamNames = [g for g in gediL2A.keys() if g.startswith('BEAM')]
-    gediL2A_objs = []
-    gediL2A.visit(gediL2A_objs.append)                                           # Retrieve list of datasets
-    gediSDS = [o for o in gediL2A_objs if isinstance(gediL2A[o], h5py.Dataset)]  # Search for relevant SDS inside data file
-
-    ###FITLER DATA 
-    rh_cols = []
-    for i in range(101):
-        rh_cols.append('rh'+str(i))
-
-    beam_dfs = []
-        
-    for highBeam in beamNames:
+def extractBeamData(highBeam, gediL2A, rh_cols):
         gedi_beam_data = {}
         try:
             gedi_beam_data["lats"] = gediL2A[f'{highBeam}/lat_lowestmode'][()]
@@ -102,41 +118,71 @@ for h5file in f.readlines():
             gedi_beam_data["elev6"] = gediL2A[f'{highBeam}/geolocation/elev_lowestmode_a6'][()]
             rh = gediL2A[f'{highBeam}/rh'][()]
             gedi_beam_data["beam"] = np.full(len(gedi_beam_data['shotNumber']), highBeam)
-                #raw_df = pd.DataFrame({shots, 'Beam':np.full(len(shots), highBeam), 'Longitude': lons, 'Latitude': lats,
-                 #                        'Quality': quality, 'Solar_Elevation': solar_elev, 'Sensitivity': sensitivity, "elev_lowestmode": elevLow,
-                 #                        'ElevationA1': elev1, 'ElevationA2': elev2, 'ElevationA3': elev3, 'ElevationA4': elev4, 'ElevationA5': elev5, 'ElevationA6': elev6})
-                
+
             raw_df = pd.DataFrame(gedi_beam_data)
-            raw_df[rh_cols] = pd.DataFrame(rh, index= raw_df.index)
-            raw_df = raw_df.dropna()
-            beam_dfs.append(raw_df)
+            raw_df[rh_cols] = pd.DataFrame(rh, index= raw_df.index) #add rh values
+            raw_df = raw_df.dropna() 
         except Exception as e:
             print("EXCEPTION: ", e)
-            skipFlag = True
+            return None
+        else:
+          return raw_df
 
 
-    if not skipFlag:
-        raw_df = pd.concat(beam_dfs)
-        filtered = raw_df[raw_df.sensitivity >= 0.9] #& (raw_df.Quality == 1)
-        
-        elevs = pd.concat([filtered.elev1, filtered.elev2, filtered.elev3, filtered.elev4, filtered.elev5, filtered.elev6])
-        filtered['elev_sd'] = elevs.std()
-        filtered['elev_mean'] = elevs.mean() #calculate mean of elevs
-        filtered['elev_range'] = filtered.apply(lambda x: rangeCalculator([x['elev1'], x['elev2'], x['elev3'], x['elev4'], x['elev5'], x['elev6']], x['elev_sd'], x['elev_mean']), axis = 1)
-        
-        GEDI_DF = filtered[filtered.elev_range < 2]
+def processBeams(gediL2A, h5file, csv_files, rh_cols):
+    ## approx 4 beams in every file
+    beamNames = [g for g in gediL2A.keys() if g.startswith('BEAM')]
+    beam_dfs = [] #create list to hold resulting dataframes for each beam
 
-        GEDI_DF = GEDI_DF[GEDI_DF.rh95 > 0]
-        
-        csv_file = "filtered_" + h5file[:-3]+".csv"
-        print("CREATING CSV: " + csv_file)
-        GEDI_DF.to_csv(csv_file)
-        cp_csv = "aws s3 cp " + csv_file + " s3://servir-public/gedi/peru/" + csv_file
-        print("COPY CSV TO S3: " + cp_csv)
-        os.system(cp_csv)
-        os.remove(csv_file)
-    try:
-        os.remove(h5file)
-    except:
-        continue
+    gediL2A_objs = []
+    gediL2A.visit(gediL2A_objs.append)                                           # Retrieve list of datasets
+    gediSDS = [o for o in gediL2A_objs if isinstance(gediL2A[o], h5py.Dataset)]  # Search for relevant SDS inside data file 
 
+    for highBeam in beamNames: #extract data from each beam in the shot
+      beam_df = extractBeamData(highBeam, gediL2A, rh_cols)
+      if not beam_df.empty: #if beam data extraction is successful, append resulting dataframe to list 
+        beam_dfs.append(beam_df)
+    
+    if len(beam_dfs) >= 2:
+      all_beam_dfs = pd.concat(beam_dfs) #combine all beam dataframes
+      filterBeamData(all_beam_dfs, h5file, csv_files)
+    elif len(beam_dfs) == 1:
+      filterBeamData(beam_dfs, h5file, csv_files)
+    else:
+      return
+
+def readH5Files(csv_files, rh_cols):
+  f = open(h5FilesToProcess, "r")
+
+  for h5file in f.readlines(): 
+      h5file = h5file.strip()
+
+      #download the h5file from aws
+      cpS3url = "aws s3 cp "+ sourceDirectory + h5file + " ./"
+      
+      print("DOWNLOAD FILE: " + cpS3url)
+      os.system(cpS3url)
+
+      ###READ DATA
+      try:
+          gediL2A = h5py.File(h5file, 'r')
+      except Exception as e:
+          print(e)
+          os.remove(h5file)
+      else:
+        processBeams(gediL2A, h5file, csv_files, rh_cols)
+
+def main():
+    csv_files = [] ## list that keeps track of all csv files generated
+
+    ##generate column names for rh vals (ranges 1-100) 
+    rh_cols = []
+    for i in range(101):
+      rh_cols.append('rh'+str(i))
+
+    readH5Files(csv_files, rh_cols)
+    print("FINISHED")
+
+
+if __name__ == "__main__":
+    main()
