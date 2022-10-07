@@ -114,7 +114,7 @@ def proc_tarfile(tarfile, year, proj_dir, vsi_path, lee_win_size=5, lee_num_look
         tmp_doy_tif.unlink()
     else:
         dst_tif = p.proj_dir / f'alos2_mosaic/{year}/{tile}/{tmp_doy_tif}'
-        shutil.move(g0_filtered_tif, dst_tif)
+        shutil.move(tmp_doy_tif, dst_tif)
 
     hh_tif = f'{vsi_path.replace("/vsizip", "")}/{tile}/{tile}_{yy}_HH_filtered.tif'
     hv_tif = f'{vsi_path.replace("/vsizip", "")}/{tile}/{tile}_{yy}_HV_filtered.tif'
