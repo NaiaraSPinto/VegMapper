@@ -67,7 +67,7 @@ def get_rtc_products(s1_proc):
         s1_proc['frames'] = {frame_id: product_paths[frame_id] for frame_id in frames}
     else:
         s1_proc['frames'] = product_paths
-    with open(s1_dir / 's1_proc.json', 'w') as f:
+    with open(f'{s1_dir}/s1_proc.json', 'w') as f:
         json.dump(s1_proc, f)
 
 
@@ -98,7 +98,7 @@ def build_vrt(s1_proc, layers=['VV', 'VH', 'INC', 'LS'], quiet=True):
             # Update s1_proc
             s1_proc['frames'][frame_id][layer] = {'vrt': vrt}
 
-    with open(s1_dir / 's1_proc.json', 'w') as f:
+    with open(f'{s1_dir}/s1_proc.json', 'w') as f:
         json.dump(s1_proc, f)
 
 
@@ -116,7 +116,7 @@ def calc_temporal_mean(s1_proc, layers=['VV', 'VH', 'INC', 'LS'], quiet=True):
             # Update s1_proc
             frame_dict[layer]['mean'] = s1_dir / frame_id / f'{start_date}_{end_date}' / f'{layer}_mean.tif'
 
-    with open(s1_dir / 's1_proc.json', 'w') as f:
+    with open(f'{s1_dir}/s1_proc.json', 'w') as f:
         json.dump(s1_proc, f)
 
 
