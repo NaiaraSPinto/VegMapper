@@ -5,6 +5,8 @@ import argparse
 import ee
 import geopandas as gpd
 
+from vegmapper import pathurl
+
 
 # Function to mask clouds based on the pixel_qa band of Landsat 8 SR data.
 # @param {ee.Image} image input Landsat 8 SR image
@@ -26,7 +28,7 @@ def addNDVI(image):
     return image.addBands(ndvi)
 
 
-def export_landsat_ndvi(sitename, tiles, res, year):
+def export_landsat_ndvi(sitename, tiles, res, year, gs=None):
     print(f'\nSubmitting GEE jobs for exporting Landsat NDVI ...')
 
     gdf_tiles = gpd.read_file(tiles)
@@ -63,23 +65,38 @@ def export_landsat_ndvi(sitename, tiles, res, year):
             # Set crs and crsTransform to the native ones and use bilinear interpolation when exported
             ndvi = addNDVI(sr).select('NDVI').reproject(**{'crs': f'EPSG:{epsg}', 'crsTransform': ct_0}).resample('bilinear')
 
-            # Export data to Google Storage bucket
-            task = ee.batch.Export.image.toCloudStorage(
-                bucket='samz',
-                fileNamePrefix=f'pinto/scratch/landsat_ndvi_{sitename}_{year}_h{h}v{v}',
-                image=ndvi,
-                description=f'landsat_ndvi_{sitename}_{year}_h{h}v{v}',
-                dimensions=f'{xdim}x{ydim}',
-                maxPixels=1e9,
-                crs=f'EPSG:{epsg}',
-                crsTransform=ct_1
-            )
+            if gs is not None:
+                gs = pathurl.PathURL(gs)
+                if gs.storage != 'gs':
+                    raise Exception('Currently GEE only supports exporting data to Google Storage buckets (gs://).')
+                # Export data to Google Storage bucket
+                task = ee.batch.Export.image.toCloudStorage(
+                    bucket=gs.bucket,
+                    fileNamePrefix=f'{gs.prefix}/landsat_ndvi_{sitename}_{year}_h{h}v{v}',
+                    image=ndvi,
+                    description=f'landsat_ndvi_{sitename}_{year}_h{h}v{v}',
+                    dimensions=f'{xdim}x{ydim}',
+                    maxPixels=1e9,
+                    crs=f'EPSG:{epsg}',
+                    crsTransform=ct_1
+                )
+            else:
+                task = ee.batch.Export.image.toDrive(
+                    image=ndvi,
+                    description=f'landsat_ndvi_{sitename}_{year}_h{h}v{v}',
+                    dimensions=f'{xdim}x{ydim}',
+                    maxPixels=1e9,
+                    crs=f'EPSG:{epsg}',
+                    crsTransform=ct_1
+                )
             task.start()
             task_list.append(task)
 
             print(f'#{i+1}: h{h}v{v} started')
         else:
             print(f'#{i+1}: h{h}v{v} skipped')
+
+    return task_list
 
 
 def main():

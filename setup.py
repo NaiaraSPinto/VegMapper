@@ -19,6 +19,6 @@ setup (
     #   ext_modules = [ext],
     scripts = [
        'vegmapper/scripts/calc_vrt_stats.py',
-       'vegmapper/scripts/s1_remove_edges.py',
+       'vegmapper/scripts/remove_edges.py',
     ]
 )
