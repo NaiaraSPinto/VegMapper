@@ -5,6 +5,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
@@ -25,6 +26,7 @@ layer_suffix = {
 #     's1_dir': proj_dir / 'Sentinel-1',
 #     'start_date': '2021-01-01',
 #     'end_date': '2021-12-31',
+#     'platform': 'S1B'
 #     'frames': None,
 # }
 
@@ -41,11 +43,15 @@ def get_rtc_products(s1_proc):
     Path('rtc_products.csv').unlink()
 
     # Filter out files outside of date range
-    dt_start = datetime.strptime(start_date, '%Y-%m-%d')
-    dt_end = datetime.strptime(end_date, '%Y-%m-%d')
-    df_products['startTime']= pd.to_datetime(df_products['startTime'])
-    df_products['stopTime']= pd.to_datetime(df_products['stopTime'])
+    dt_start = datetime.strptime(f'{start_date}T00:00:00+00:00', '%Y-%m-%dT%H:%M:%S%z')
+    dt_end = datetime.strptime(f'{end_date}T00:00:00+00:00', '%Y-%m-%dT%H:%M:%S%z')
+    df_products['startTime']= pd.to_datetime(df_products['startTime'], utc=True)
+    df_products['stopTime']= pd.to_datetime(df_products['stopTime'], utc=True)
     df_products = df_products[(dt_start < df_products.startTime) & (df_products.startTime < dt_end)]
+
+    # Filter out files based on platform
+    if 'platform' in s1_proc.keys():
+        df_products = df_products[df_products.filename.str[0:3] == s1_proc['platform']]
 
     # Get dictionary of vsi_paths of all RTC products
     # {frame: {'paths': [vsi_paths]}
@@ -146,3 +152,80 @@ def remove_edges(s1_proc, edge_depth=200):
                     dset.write(data, 1)
             pathurl.copy(tif_edge_removed, tif, overwrite=True)
             tif_edge_removed.unlink()
+
+
+def warp_to_tiles(s1_proc, tiles):
+    s1_dir = s1_proc['s1_dir']
+    start_date = s1_proc['start_date']
+    end_date = s1_proc['end_date']
+    vrt_dir = s1_dir / 'vrt' / f'{start_date}_{end_date}'
+    if not vrt_dir.exists() and vrt_dir.is_local:
+        vrt_dir.path.mkdir(parents=True)
+
+    gdf_tiles = gpd.read_file(tiles)
+    t_epsg = gdf_tiles.crs.to_epsg()
+
+    # Group frames by EPSG codes (UTM zones)
+    frames_by_epsg = {}
+    for frame_id, frame_dict in s1_proc['frames'].items():
+        vv = frame_dict['VV']['mean'].path
+        with rasterio.open(vv) as dset:
+            epsg = dset.crs.to_epsg()
+        if epsg in frames_by_epsg.keys():
+            frames_by_epsg[epsg].append(frame_id)
+        else:
+            frames_by_epsg[epsg] = [frame_id]
+
+    for layer in ['VV', 'VH', 'INC']:
+        vrt_list = []
+        for epsg, frames in frames_by_epsg.items():
+            # Make VRT for each EPSG (UTM zone)
+            vrt = vrt_dir / f'C-{layer}-{epsg}.vrt'
+            tif_list = []
+            for frame_id in frames:
+                tif = f"{s1_proc['frames'][frame_id][layer]['mean'].path}"
+                tif_list.append(tif)
+            cmd = f'gdalbuildvrt -overwrite {vrt} {" ".join(tif_list)}'
+            subprocess.check_call(cmd, shell=True)
+
+            # Virtually warp all VRT into target UTM projection (t_epsg)
+            if epsg == t_epsg:
+                vrt_list.append(str(vrt))
+            else:
+                vrt_t_epsg = vrt_dir / f'C-{layer}-{epsg}-to-{t_epsg}.vrt'
+                cmd = (f'gdalwarp -overwrite '
+                       f'-t_srs EPSG:{t_epsg} -et 0 '
+                       f'-tr 30 30 -tap '
+                       f'-dstnodata nan '
+                       f'-r near '
+                       f'-co COMPRESS=LZW '
+                       f'{vrt} {vrt_t_epsg}')
+                subprocess.check_call(cmd, shell=True)
+                vrt_list.append(str(vrt_t_epsg))
+
+        vrt = vrt_dir / f'C-{layer}.vrt'
+        cmd = (f'gdalbuildvrt -overwrite '
+               f'{vrt} {" ".join(vrt_list)}')
+        subprocess.check_call(cmd, shell=True)
+
+        for i in gdf_tiles.index:
+            h = gdf_tiles['h'][i]
+            v = gdf_tiles['v'][i]
+            m = gdf_tiles['mask'][i]
+            g = gdf_tiles['geometry'][i]
+
+            if m == 0:
+                continue
+
+            # Warp to reference tiles
+            src_vrt = vrt_dir / f'C-{layer}.vrt'
+            dst_vrt = vrt_dir / f'C-{layer}-h{h}v{v}.vrt'
+            cmd = (f'gdalwarp -overwrite '
+                f'-t_srs EPSG:{t_epsg} -et 0 '
+                f'-te {g.bounds[0]} {g.bounds[1]} {g.bounds[2]} {g.bounds[3]} '
+                f'-tr 30 30 '
+                f'-dstnodata nan '
+                f'-r near '
+                f'-co COMPRESS=LZW '
+                f'{src_vrt} {dst_vrt}')
+            subprocess.check_call(cmd, shell=True)

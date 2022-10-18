@@ -2,6 +2,7 @@
 
 import json
 import shutil
+import subprocess
 from copy import copy
 from datetime import datetime
 from pathlib import Path
@@ -154,18 +155,43 @@ def submit_rtc_jobs(granules,
             batch += hyp3.submit_rtc_job(granule, job_name, **rtc_opts)
     print(f'\nJob {job_name} submitted.')
 
-    return batch
+    return batch, job_name
 
 
-def download_files(batch, download_dir='hyp3_downloads'):
+def download_batch(batch, dst_dir, quiet=True):
+    for job in batch:
+        files = job.files
+        for file in files:
+            url = file['url']
+            cmd = f'wget '
+            if quiet:
+                cmd = cmd + '-q '
+            cmd = cmd + f'-c -P {dst_dir} {url}'
+            subprocess.call(cmd, shell=True)
+
+
+def download_files(batch, proj_dir: pathurl.ProjDir, wget=True, quiet=True):
     """
     Download files for a batch and sort them into corresponding path_frame folders in dst directory.
     """
+    # Download directly to project directory if it's local
+    s1_dir = proj_dir / 'Sentinel-1'
+    if s1_dir.is_local:
+        download_dir = s1_dir
+    else:
+        download_dir = Path('hyp3_downloads')
+
     # Download files
     batch_dict = batch_to_dict(batch)
     for (p, f), d in batch_dict.items():
-        print(f'Downloading files of (Path {p}, Frame {f}) to {download_dir}/{p}_{f}:')
-        d['batch'].download_files(f'{download_dir}/{p}_{f}')
+        dst_dir = download_dir / f'{p}_{f}'
+        if not dst_dir.exists():
+            dst_dir.path.mkdir(parents=True)
+        print(f'Downloading files of (Path {p}, Frame {f}) to {dst_dir}:')
+        if wget:
+            download_batch(d['batch'], dst_dir, quiet)
+        else:
+            d['batch'].download_files(f'{dst_dir}')
 
     # Load rtc_jobs.json in dst if any
     rtc_jobs_file = Path(f'{download_dir}/rtc_jobs.json')
