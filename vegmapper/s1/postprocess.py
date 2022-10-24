@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
 import json
-from platform import platform
-import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -28,9 +26,9 @@ layer_suffix = {
 # Expect this from user before processing
 # s1_proc = {
 #     'proj_dir': proj_dir,
+#     'platform': 'S1B'
 #     'start_date': '2021-01-01',
 #     'end_date': '2021-12-31',
-#     'platform': 'S1B'
 #     'frames': None,
 # }
 

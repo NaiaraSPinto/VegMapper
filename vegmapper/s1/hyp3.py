@@ -74,7 +74,7 @@ def batch_to_df(batch: Batch):
 
 
 def submit_rtc_jobs(granules,
-                    proj_dir: ProjDir,
+                    proj_dir,
                     hyp3=None,
                     job_name=None,
                     resubmit=False,
@@ -83,6 +83,7 @@ def submit_rtc_jobs(granules,
     Submit RTC jobs for granules in search results (geojson or GeoDataFrame).
     """
     # Sentinel-1 directory
+    proj_dir = ProjDir(proj_dir)
     s1_dir = proj_dir / 'Sentinel-1'
 
     # Group granules by frames
