@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
 import argparse
+import json
+from pathlib import Path
 
 import ee
 import geopandas as gpd
 
 from vegmapper import pathurl
+from vegmapper.pathurl import ProjDir
 
 
 # Function to mask clouds based on the pixel_qa band of Landsat 8 SR data.
@@ -28,7 +31,7 @@ def addNDVI(image):
     return image.addBands(ndvi)
 
 
-def export_landsat_ndvi(sitename, tiles, res, year, gs=None):
+def export_landsat_ndvi(proj_dir, sitename, tiles, res, year, gs=None):
     print(f'\nSubmitting GEE jobs for exporting Landsat NDVI ...')
 
     gdf_tiles = gpd.read_file(tiles)
@@ -95,6 +98,17 @@ def export_landsat_ndvi(sitename, tiles, res, year, gs=None):
             print(f'#{i+1}: h{h}v{v} started')
         else:
             print(f'#{i+1}: h{h}v{v} skipped')
+
+    # Save export destinations
+    proj_dir = ProjDir(proj_dir)
+    dst_dir = proj_dir / 'landsat' / year
+    export_dst = {task.config['description']: task.config['fileExportOptions'] for task in task_list}
+    if dst_dir.is_local:
+        export_dst_json = Path(f'{dst_dir}/export_dst.json')
+        if not export_dst_json.parent.exists():
+            export_dst_json.parent.mkdir(parents=True)
+        with open(export_dst_json, 'w') as f:
+            json.dump(export_dst, f)
 
     return task_list
 
