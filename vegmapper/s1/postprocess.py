@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
 import json
+from platform import platform
+import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from typing import Union
 
 import geopandas as gpd
 import numpy as np
@@ -11,6 +14,7 @@ import pandas as pd
 import rasterio
 
 from vegmapper import pathurl
+from vegmapper.pathurl import ProjDir, PathURL
 
 
 # GeoTIFF suffix of data layer in the RTC product
@@ -23,7 +27,7 @@ layer_suffix = {
 
 # Expect this from user before processing
 # s1_proc = {
-#     's1_dir': proj_dir / 'Sentinel-1',
+#     'proj_dir': proj_dir,
 #     'start_date': '2021-01-01',
 #     'end_date': '2021-12-31',
 #     'platform': 'S1B'
@@ -31,27 +35,39 @@ layer_suffix = {
 # }
 
 
-def get_rtc_products(s1_proc):
-    s1_dir = s1_proc['s1_dir']
+def get_s1_proc(s1_proc: Union[dict, str, Path, PathURL]):
+    if isinstance(s1_proc, Union[str, Path]):
+        with open(s1_proc) as f:
+            s1_proc = json.load(f)
+    elif isinstance(s1_proc, PathURL):
+        pathurl.copy(s1_proc, 's1_proc.json')
+        with open('s1_proc.json') as f:
+            s1_proc = json.load(f)
+        Path('s1_proc.json').unlink()
+
+    return s1_proc
+
+
+def get_rtc_products(s1_proc: Union[dict, str, Path, PathURL]):
+    s1_proc = get_s1_proc(s1_proc)
+    proj_dir = ProjDir(s1_proc['proj_dir'])
+    s1_dir = proj_dir / 'Sentinel-1'
+    platform = s1_proc['platform']
     start_date = s1_proc['start_date']
     end_date = s1_proc['end_date']
 
     # Read rtc_products.csv
-    rtc_products_file = s1_dir / 'rtc_products.csv'
-    pathurl.copy(rtc_products_file, '.', overwrite=True)
-    df_products = pd.read_csv('rtc_products.csv')
-    Path('rtc_products.csv').unlink()
+    df_products = pd.read_csv(f'{s1_dir}/rtc_products.csv')
 
-    # Filter out files outside of date range
+    # Filter files based on platform
+    df_products = df_products[df_products.filename.str[0:len(platform)] == platform]
+
+    # Filter files based on date range
     dt_start = datetime.strptime(f'{start_date}T00:00:00+00:00', '%Y-%m-%dT%H:%M:%S%z')
     dt_end = datetime.strptime(f'{end_date}T00:00:00+00:00', '%Y-%m-%dT%H:%M:%S%z')
     df_products['startTime']= pd.to_datetime(df_products['startTime'], utc=True)
     df_products['stopTime']= pd.to_datetime(df_products['stopTime'], utc=True)
     df_products = df_products[(dt_start < df_products.startTime) & (df_products.startTime < dt_end)]
-
-    # Filter out files based on platform
-    if 'platform' in s1_proc.keys():
-        df_products = df_products[df_products.filename.str[0:3] == s1_proc['platform']]
 
     # Get dictionary of vsi_paths of all RTC products
     # {frame: {'paths': [vsi_paths]}
@@ -73,12 +89,21 @@ def get_rtc_products(s1_proc):
         s1_proc['frames'] = {frame_id: product_paths[frame_id] for frame_id in frames}
     else:
         s1_proc['frames'] = product_paths
-    # with open(f'{s1_dir}/s1_proc.json', 'w') as f:
-    #     json.dump(s1_proc, f)
+
+    # Save s1_proc
+    if s1_dir.is_local:
+        s1_proc_json = Path(f'{s1_dir}/{platform}_{start_date}_{end_date}/s1_proc.json')
+        if not s1_proc_json.parent.exists():
+            s1_proc_json.parent.mkdir(parents=True)
+        with open(s1_proc_json, 'w') as f:
+            json.dump(s1_proc, f)
 
 
-def build_vrt(s1_proc, layers=['VV', 'VH', 'INC', 'LS'], quiet=True):
-    s1_dir = s1_proc['s1_dir']
+def build_vrt(s1_proc: Union[dict, str, Path, PathURL], layers=['VV', 'VH', 'INC', 'LS'], quiet=True):
+    s1_proc = get_s1_proc(s1_proc)
+    proj_dir = ProjDir(s1_proc['proj_dir'])
+    s1_dir = proj_dir / 'Sentinel-1'
+    platform = s1_proc['platform']
     start_date = s1_proc['start_date']
     end_date = s1_proc['end_date']
 
@@ -92,9 +117,9 @@ def build_vrt(s1_proc, layers=['VV', 'VH', 'INC', 'LS'], quiet=True):
                 tif_list.append(f'{vsi_path}/{zip_stem}/{zip_stem}_{layer_suffix[layer]}.tif')
             # Build VRT
             if s1_dir.is_cloud:
-                vrt = f'/vsi{s1_dir.storage}/{s1_dir.bucket}/{s1_dir.prefix}/{frame_id}/{start_date}_{end_date}/{layer}.vrt'
+                vrt = f'/vsi{s1_dir.storage}/{s1_dir.bucket}/{s1_dir.prefix}/{platform}_{start_date}_{end_date}/{frame_id}/{layer}.vrt'
             else:
-                vrt = Path(f'{s1_dir}/{frame_id}/{start_date}_{end_date}/{layer}.vrt')
+                vrt = Path(f'{s1_dir}/{platform}_{start_date}_{end_date}/{frame_id}/{layer}.vrt')
                 if not vrt.parent.exists():
                     vrt.parent.mkdir(parents=True)
             cmd = f'gdalbuildvrt -overwrite {vrt} {" ".join(tif_list)}'
@@ -102,14 +127,22 @@ def build_vrt(s1_proc, layers=['VV', 'VH', 'INC', 'LS'], quiet=True):
                 cmd = cmd + ' -q'
             subprocess.check_call(cmd, shell=True)
             # Update s1_proc
-            s1_proc['frames'][frame_id][layer] = {'vrt': vrt}
+            s1_proc['frames'][frame_id][layer] = {'vrt': f'{vrt}'}
 
-    # with open(f'{s1_dir}/s1_proc.json', 'w') as f:
-    #     json.dump(s1_proc, f)
+    # Save s1_proc
+    if s1_dir.is_local:
+        s1_proc_json = Path(f'{s1_dir}/{platform}_{start_date}_{end_date}/s1_proc.json')
+        if not s1_proc_json.parent.exists():
+            s1_proc_json.parent.mkdir(parents=True)
+        with open(s1_proc_json, 'w') as f:
+            json.dump(s1_proc, f)
 
 
-def calc_temporal_mean(s1_proc, layers=['VV', 'VH', 'INC', 'LS'], quiet=True):
-    s1_dir = s1_proc['s1_dir']
+def calc_temporal_mean(s1_proc: Union[dict, str, Path, PathURL], layers=['VV', 'VH', 'INC', 'LS'], quiet=True):
+    s1_proc = get_s1_proc(s1_proc)
+    proj_dir = ProjDir(s1_proc['proj_dir'])
+    s1_dir = proj_dir / 'Sentinel-1'
+    platform = s1_proc['platform']
     start_date = s1_proc['start_date']
     end_date = s1_proc['end_date']
 
@@ -120,18 +153,24 @@ def calc_temporal_mean(s1_proc, layers=['VV', 'VH', 'INC', 'LS'], quiet=True):
             vrt = frame_dict[layer]['vrt']
             subprocess.check_call(f'calc_vrt_stats.py {vrt} mean', shell=True)
             # Update s1_proc
-            frame_dict[layer]['mean'] = s1_dir / frame_id / f'{start_date}_{end_date}' / f'{layer}_mean.tif'
+            frame_dict[layer]['mean'] = f'{s1_dir}/{platform}_{start_date}_{end_date}/{frame_id}/{layer}_mean.tif'
 
-    # with open(f'{s1_dir}/s1_proc.json', 'w') as f:
-    #     json.dump(s1_proc, f)
+    # Save s1_proc
+    if s1_dir.is_local:
+        s1_proc_json = Path(f'{s1_dir}/{platform}_{start_date}_{end_date}/s1_proc.json')
+        if not s1_proc_json.parent.exists():
+            s1_proc_json.parent.mkdir(parents=True)
+        with open(s1_proc_json, 'w') as f:
+            json.dump(s1_proc, f)
 
 
-def remove_edges(s1_proc, edge_depth=200):
+def remove_edges(s1_proc: Union[dict, str, Path, PathURL], edge_depth=200):
+    s1_proc = get_s1_proc(s1_proc)
     for frame_id, frame_dict in s1_proc['frames'].items():
         print(f'Removing {edge_depth} edge pixels on the left and right for {frame_id}')
-        vv = frame_dict['VV']['mean'].path
+        vv = frame_dict['VV']['mean']
         vv_edge_removed = Path('VV_mean.tif')
-        ls = frame_dict['LS']['mean'].path
+        ls = frame_dict['LS']['mean']
         subprocess.check_call((f'remove_edges.py {vv} {vv_edge_removed} '
                                f'--maskfile {ls} '
                                f'--lr_only --edge_depth {edge_depth}'),
@@ -139,7 +178,7 @@ def remove_edges(s1_proc, edge_depth=200):
         with rasterio.open(vv_edge_removed) as dset:
             mask = dset.read_masks(1)
         for layer in ['VV', 'VH', 'INC']:
-            tif = frame_dict[layer]['mean'].path
+            tif = frame_dict[layer]['mean']
             tif_edge_removed = Path(f'{layer}_mean.tif')
             if layer != 'VV':
                 with rasterio.open(tif) as dset:
@@ -154,11 +193,14 @@ def remove_edges(s1_proc, edge_depth=200):
             tif_edge_removed.unlink()
 
 
-def warp_to_tiles(s1_proc, tiles):
-    s1_dir = s1_proc['s1_dir']
+def warp_to_tiles(s1_proc: Union[dict, str, Path, PathURL], tiles):
+    s1_proc = get_s1_proc(s1_proc)
+    proj_dir = ProjDir(s1_proc['proj_dir'])
+    s1_dir = proj_dir / 'Sentinel-1'
+    platform = s1_proc['platform']
     start_date = s1_proc['start_date']
     end_date = s1_proc['end_date']
-    vrt_dir = s1_dir / 'vrt' / f'{start_date}_{end_date}'
+    vrt_dir = s1_dir / f'{platform}_{start_date}_{end_date}' / 'vrt'
     if not vrt_dir.exists() and vrt_dir.is_local:
         vrt_dir.path.mkdir(parents=True)
 
@@ -168,7 +210,7 @@ def warp_to_tiles(s1_proc, tiles):
     # Group frames by EPSG codes (UTM zones)
     frames_by_epsg = {}
     for frame_id, frame_dict in s1_proc['frames'].items():
-        vv = frame_dict['VV']['mean'].path
+        vv = frame_dict['VV']['mean']
         with rasterio.open(vv) as dset:
             epsg = dset.crs.to_epsg()
         if epsg in frames_by_epsg.keys():
@@ -183,7 +225,7 @@ def warp_to_tiles(s1_proc, tiles):
             vrt = vrt_dir / f'C-{layer}-{epsg}.vrt'
             tif_list = []
             for frame_id in frames:
-                tif = f"{s1_proc['frames'][frame_id][layer]['mean'].path}"
+                tif = s1_proc['frames'][frame_id][layer]['mean']
                 tif_list.append(tif)
             cmd = f'gdalbuildvrt -overwrite {vrt} {" ".join(tif_list)}'
             subprocess.check_call(cmd, shell=True)

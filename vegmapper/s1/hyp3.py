@@ -6,6 +6,7 @@ import subprocess
 from copy import copy
 from datetime import datetime
 from pathlib import Path
+from typing import Union
 
 import asf_search as asf
 import geopandas as gpd
@@ -13,6 +14,7 @@ import pandas as pd
 from hyp3_sdk import HyP3, Batch
 
 from vegmapper import pathurl
+from vegmapper.pathurl import ProjDir
 from vegmapper.asf import granule_search
 from .search import group_granules
 
@@ -72,7 +74,7 @@ def batch_to_df(batch: Batch):
 
 
 def submit_rtc_jobs(granules,
-                    proj_dir: pathurl.ProjDir,
+                    proj_dir: ProjDir,
                     hyp3=None,
                     job_name=None,
                     resubmit=False,
@@ -170,11 +172,14 @@ def download_batch(batch, dst_dir, quiet=True):
             subprocess.call(cmd, shell=True)
 
 
-def download_files(batch, proj_dir: pathurl.ProjDir, wget=True, quiet=True):
+def download_files(batch, proj_dir: Union[str, Path, ProjDir], wget=True, quiet=True):
     """
     Download files for a batch and sort them into corresponding path_frame folders in dst directory.
     """
-    # Download directly to project directory if it's local
+    # Convert proj_dir to a ProjDir object
+    proj_dir = ProjDir(proj_dir)
+
+    # Download directly to proj_dir if it's local
     s1_dir = proj_dir / 'Sentinel-1'
     if s1_dir.is_local:
         download_dir = s1_dir
@@ -224,7 +229,7 @@ def download_files(batch, proj_dir: pathurl.ProjDir, wget=True, quiet=True):
     print(f'{rtc_products_file} updated.')
 
 
-def copy_files(proj_dir: pathurl.ProjDir, download_dir='hyp3_downloads'):
+def copy_files(proj_dir: ProjDir, download_dir='hyp3_downloads'):
     """
     Copy downloaded files to project directory and update rtc_jobs.json and rtc_products.csv.
     """
