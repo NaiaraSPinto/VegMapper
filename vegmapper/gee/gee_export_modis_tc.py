@@ -72,7 +72,7 @@ def export_modis_tc(proj_dir, sitename, tiles, res, year, gs=None):
 
     # Save export destinations
     proj_dir = ProjDir(proj_dir)
-    dst_dir = proj_dir / 'modis' / year
+    dst_dir = proj_dir / 'modis' / f'{year}'
     export_dst = {task.config['description']: task.config['fileExportOptions'] for task in task_list}
     if dst_dir.is_local:
         export_dst_json = Path(f'{dst_dir}/export_dst.json')

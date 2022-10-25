@@ -34,7 +34,7 @@ layer_suffix = {
 
 
 def get_s1_proc(s1_proc: Union[dict, str, Path, PathURL]):
-    if isinstance(s1_proc, Union[str, Path]):
+    if isinstance(s1_proc, (str, Path)):
         with open(s1_proc) as f:
             s1_proc = json.load(f)
     elif isinstance(s1_proc, PathURL):
