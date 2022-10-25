@@ -24,7 +24,7 @@ def download_files(proj_dir, tasks):
             print(f'Downloading {filename}')
             pathurl.copy(gcs_url, dst_dir)
     else:
-        with open('tasks') as f:
+        with open(tasks) as f:
             export_dst = json.load(f)
         for filename, export_opts in export_dst.items():
             if 'gcsDestination' in export_opts.keys():
@@ -36,4 +36,4 @@ def download_files(proj_dir, tasks):
             gcs_url = f'gs://{gcs_bucket}/{gcs_prefix}.tif'
             dst_dir = proj_dir / filename.split('_')[0]
             print(f'Downloading {filename}')
-            pathurl.copy(gcs_url, dst_dir)
+            pathurl.copy(gcs_url, dst_dir, overwrite=True)
