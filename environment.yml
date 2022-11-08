@@ -10,6 +10,7 @@ dependencies:
   - gsutil
   - h5py
   - hyp3_sdk
+  - ipywidgets
   - jupyterlab
   - kernda
   - numpy

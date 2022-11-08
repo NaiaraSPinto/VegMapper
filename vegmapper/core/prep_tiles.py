@@ -73,7 +73,7 @@ def prep_tiles(aoi_name, aoi_boundary, t_size, centered=True,
                                  crs=f'epsg:{utm_epsg}',
                                  geometry=polygons)
 
-    out_dir = aoi_boundary.rstrip(aoi_boundary.split('/')[-1]).strip('/')
+    out_dir = aoi_boundary.rstrip(aoi_boundary.split('/')[-1]).rstrip('/')
     out_tiles = f'{out_dir}/{aoi_name}_tiles.geojson'
     with warnings.catch_warnings():
         # Ignore the FutureWarning, which will be fixed in the next release of geopandas

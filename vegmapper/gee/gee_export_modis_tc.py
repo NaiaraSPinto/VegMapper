@@ -1,12 +1,17 @@
 #!/usr/bin/env python
 
 import argparse
+import json
+from pathlib import Path
 
 import ee
 import geopandas as gpd
 
+from vegmapper import pathurl
+from vegmapper.pathurl import ProjDir
 
-def export_modis_tc(sitename, tiles, res, year):
+
+def export_modis_tc(proj_dir, sitename, tiles, res, year, gs=None):
     print(f'\nSubmitting GEE jobs for exporting MODIS tree cover ...')
 
     gdf_tiles = gpd.read_file(tiles)
@@ -34,23 +39,49 @@ def export_modis_tc(sitename, tiles, res, year):
         ct = [res, 0, xmin, 0, -res, ymax]
 
         if m == 1:
-            # Export data to Google Storage bucket
-            task = ee.batch.Export.image.toCloudStorage(
-                bucket='samz',
-                fileNamePrefix=f'pinto/scratch/modis_tc_{sitename}_{year}_h{h}v{v}',
-                image=modisTreeCover,
-                description=f'modis_tc_{sitename}_{year}_h{h}v{v}',
-                dimensions=f'{xdim}x{ydim}',
-                maxPixels=1e9,
-                crs=f'EPSG:{epsg}',
-                crsTransform=ct
-            )
+            if gs is not None:
+                gs = pathurl.PathURL(gs)
+                if gs.storage != 'gs':
+                    raise Exception('Currently GEE only supports exporting data to Google Storage buckets (gs://).')
+                # Export data to Google Storage bucket
+                task = ee.batch.Export.image.toCloudStorage(
+                    bucket=gs.bucket,
+                    fileNamePrefix=f'{gs.prefix}/modis_tc_{sitename}_{year}_h{h}v{v}',
+                    image=modisTreeCover,
+                    description=f'modis_tc_{sitename}_{year}_h{h}v{v}',
+                    dimensions=f'{xdim}x{ydim}',
+                    maxPixels=1e9,
+                    crs=f'EPSG:{epsg}',
+                    crsTransform=ct
+                )
+            else:
+                task = ee.batch.Export.image.toDrive(
+                    image=modisTreeCover,
+                    description=f'modis_tc_{sitename}_{year}_h{h}v{v}',
+                    dimensions=f'{xdim}x{ydim}',
+                    maxPixels=1e9,
+                    crs=f'EPSG:{epsg}',
+                    crsTransform=ct
+                )
             task.start()
             task_list.append(task)
 
             print(f'#{i+1}: h{h}v{v} started')
         else:
             print(f'#{i+1}: h{h}v{v} skipped')
+
+    # Save export destinations
+    proj_dir = ProjDir(proj_dir)
+    dst_dir = proj_dir / 'modis' / f'{year}'
+    export_dst = {task.config['description']: task.config['fileExportOptions'] for task in task_list}
+    if dst_dir.is_local:
+        export_dst_json = Path(f'{dst_dir}/export_dst.json')
+        if not export_dst_json.parent.exists():
+            export_dst_json.parent.mkdir(parents=True)
+        with open(export_dst_json, 'w') as f:
+            json.dump(export_dst, f)
+
+    return task_list
 
 
 def main():
