@@ -1,13 +1,13 @@
 import json
 
 from vegmapper import pathurl
-from vegmapper.pathurl import ProjDir
+from vegmapper.pathurl import PathURL
 
 # TO DO:
-#   1. Handle cloud proj_dir
+#   1. Handle cloud data_dir
 
-def download_files(proj_dir, tasks):
-    proj_dir = ProjDir(proj_dir)
+def download_files(data_dir, tasks):
+    data_dir = PathURL(data_dir)
 
     if isinstance(tasks, list):
         for task in tasks:
@@ -20,7 +20,7 @@ def download_files(proj_dir, tasks):
             gcs_bucket = export_opts[dst_key]['bucket']
             gcs_prefix = export_opts[dst_key]['filenamePrefix']
             gcs_url = f'gs://{gcs_bucket}/{gcs_prefix}.tif'
-            dst_dir = proj_dir / filename.split('_')[0]
+            dst_dir = data_dir
             print(f'Downloading {filename}')
             pathurl.copy(gcs_url, dst_dir)
     else:
@@ -34,6 +34,6 @@ def download_files(proj_dir, tasks):
             gcs_bucket = export_opts[dst_key]['bucket']
             gcs_prefix = export_opts[dst_key]['filenamePrefix']
             gcs_url = f'gs://{gcs_bucket}/{gcs_prefix}.tif'
-            dst_dir = proj_dir / filename.split('_')[0]
+            dst_dir = data_dir
             print(f'Downloading {filename}')
             pathurl.copy(gcs_url, dst_dir, overwrite=True)

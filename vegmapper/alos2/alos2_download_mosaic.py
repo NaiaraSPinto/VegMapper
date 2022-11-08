@@ -75,9 +75,9 @@ def download_tiles(proj_dir, aoi, year, quiet=True):
     # Check proj_dir
     p = ProjDir(proj_dir)
     if p.is_cloud:
-        dst_dir = f'{p.storage}://{p.bucket}/{p.prefix}/alos2_mosaic/{year}/tarfiles'
+        dst_dir = f'{p.storage}://{p.bucket}/{p.prefix}/ALOS-2/mosaic/{year}/tarfiles'
     else:
-        dst_dir = p.proj_dir / f'alos2_mosaic/{year}/tarfiles'
+        dst_dir = p.proj_dir / f'ALOS-2/mosaic/{year}/tarfiles'
         if not dst_dir.exists():
             dst_dir.mkdir(parents=True)
 
