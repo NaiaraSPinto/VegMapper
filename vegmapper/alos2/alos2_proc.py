@@ -70,14 +70,14 @@ def proc_tarfile(tarfile, year, proj_dir, vsi_path, lee_win_size=5, lee_num_look
         with rasterio.open(g0_filtered_tif, 'w', **profile) as dset:
             dset.write(g0_filtered.astype(np.float32), 1)
 
-        # Move/copy filtered GeoTIFF to proj_dir/alos2_mosaic/year/tile
+        # Move/copy filtered GeoTIFF to proj_dir/ALOS-2/mosaic/year/tile
         if p.is_cloud:
-            dst_tif = f'{p.proj_dir}/alos2_mosaic/{year}/{tile}/{g0_filtered_tif}'
+            dst_tif = f'{p.proj_dir}/ALOS-2/mosaic/{year}/{tile}/{g0_filtered_tif}'
             cmd = (f'gsutil -q cp {g0_filtered_tif} {dst_tif}')
             subprocess.check_call(cmd, shell=True)
             g0_filtered_tif.unlink()
         else:
-            dst_tif = p.proj_dir / f'alos2_mosaic/{year}/{tile}/{g0_filtered_tif}'
+            dst_tif = p.proj_dir / f'ALOS-2/mosaic/{year}/{tile}/{g0_filtered_tif}'
             if not dst_tif.parent.exists():
                 dst_tif.parent.mkdir()
             shutil.move(g0_filtered_tif, dst_tif)
@@ -108,12 +108,12 @@ def proc_tarfile(tarfile, year, proj_dir, vsi_path, lee_win_size=5, lee_num_look
         doy[mask == 0] = -9999
         dset.write(doy, 1)
     if p.is_cloud:
-        dst_tif = f'{p.proj_dir}/alos2_mosaic/{year}/{tile}/{tmp_doy_tif}'
+        dst_tif = f'{p.proj_dir}/ALOS-2/mosaic/{year}/{tile}/{tmp_doy_tif}'
         cmd = (f'gsutil -q cp {tmp_doy_tif} {dst_tif}')
         subprocess.check_call(cmd, shell=True)
         tmp_doy_tif.unlink()
     else:
-        dst_tif = p.proj_dir / f'alos2_mosaic/{year}/{tile}/{tmp_doy_tif}'
+        dst_tif = p.proj_dir / f'ALOS-2/mosaic/{year}/{tile}/{tmp_doy_tif}'
         shutil.move(tmp_doy_tif, dst_tif)
 
     hh_tif = f'{vsi_path.replace("/vsizip", "")}/{tile}/{tile}_{yy}_HH_filtered.tif'
@@ -128,9 +128,9 @@ def proc_tiles(proj_dir, year, filter_win_size=5, filter_num_looks=1):
     # Check proj_dir
     p = ProjDir(proj_dir)
     if p.is_cloud:
-        vsi_path = f'/vsizip/vsi{p.storage}/{p.bucket}/{p.prefix}/alos2_mosaic/{year}'
+        vsi_path = f'/vsizip/vsi{p.storage}/{p.bucket}/{p.prefix}/ALOS-2/mosaic/{year}'
     else:
-        vsi_path = f'/vsizip/{p.proj_dir}/alos2_mosaic/{year}'
+        vsi_path = f'/vsizip/{p.proj_dir}/ALOS-2/mosaic/{year}'
 
     # .tar.gz filename pattern
     if year < 2014:
@@ -141,13 +141,13 @@ def proc_tiles(proj_dir, year, filter_win_size=5, filter_num_looks=1):
         tarfile_pattern = re.compile(r'^[N|S]{1}\w{2}[E|W]{1}\w{3}_\w{2}_MOS_F02DAR.zip$')
 
     # List all tarfiles
-    ls_cmd = f'ls {p.proj_dir}/alos2_mosaic/{year}/tarfiles/*.zip'
+    ls_cmd = f'ls {p.proj_dir}/ALOS-2/mosaic/{year}/tarfiles/*.zip'
     if p.is_cloud:
         ls_cmd = 'gsutil ' + ls_cmd
     tarfile_list = [Path(p).name for p in subprocess.check_output(ls_cmd, shell=True).decode(sys.stdout.encoding).splitlines()]
 
     if not tarfile_list:
-        raise Exception(f'No .tar.gz files found under {p.proj_dir}/alos2_mosaic/{year}/tarfiles/.')
+        raise Exception(f'No .tar.gz files found under {p.proj_dir}/ALOS-2/mosaic/{year}/tarfiles/.')
 
     tif_lists = {
         'HH': [],
@@ -157,7 +157,7 @@ def proc_tiles(proj_dir, year, filter_win_size=5, filter_num_looks=1):
     }
 
     # Processing mosaic data and get list of processed .tif
-    print(f'\nProcessing ALOS-2 yearly mosaic data in {p.proj_dir}/alos2_mosaic/{year}/tarfiles ...')
+    print(f'\nProcessing ALOS-2 yearly mosaic data in {p.proj_dir}/ALOS-2/mosaic/{year}/tarfiles ...')
     for tarfile in tarfile_list:
         if tarfile_pattern.fullmatch(tarfile):
             hh_tif, hv_tif, inc_tif, doy_tif = proc_tarfile(tarfile, year, proj_dir, vsi_path, filter_win_size, filter_num_looks)
@@ -172,12 +172,12 @@ def proc_tiles(proj_dir, year, filter_win_size=5, filter_num_looks=1):
         cmd = f'gdalbuildvrt -overwrite {vrt} {" ".join(tif_list)}'
         subprocess.check_call(cmd, shell=True)
         if p.is_cloud:
-            dst_vrt = f'{p.proj_dir}/alos2_mosaic/{year}/{vrt}'
+            dst_vrt = f'{p.proj_dir}/ALOS-2/mosaic/{year}/{vrt}'
             cmd = (f'gsutil -q cp {vrt} {dst_vrt}')
             subprocess.check_call(cmd, shell=True)
             vrt.unlink()
         else:
-            dst_vrt = p.proj_dir / f'alos2_mosaic/{year}/{vrt}'
+            dst_vrt = p.proj_dir / f'ALOS-2/mosaic/{year}/{vrt}'
             shutil.move(vrt, dst_vrt)
 
     print('\nDONE processing ALOS-2 yearly mosaic data.')
@@ -191,7 +191,7 @@ def main():
                         type=str,
                         help=('project directory (s3:// or gs:// or local dirs); '
                               'ALOS/ALOS-2 mosaic data (.tar.gz) are expected '
-                              'to be found under proj_dir/alos2_mosaic/year/tarfiles/'))
+                              'to be found under proj_dir/ALOS-2/mosaic/year/tarfiles/'))
     parser.add_argument('year', metavar='year',
                         type=int,
                         help='year')
