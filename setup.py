@@ -12,6 +12,7 @@ setup (
         'vegmapper.gee',
         'vegmapper.pathurl',
         'vegmapper.s1',
+        'vegmapper.gedi'
     ],
     #   package_data = {'vegmapper': ['share/*.dat']},
     #   libraries = [clib],
