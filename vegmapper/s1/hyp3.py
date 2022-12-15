@@ -202,7 +202,7 @@ def download_files(batch, proj_dir: Union[str, Path, ProjDir], wget=True, quiet=
     # Load rtc_jobs.json in dst if any
     rtc_jobs_file = Path(f'{download_dir}/rtc_jobs.json')
     if rtc_jobs_file.exists():
-        with open('rtc_jobs.json') as f:
+        with open(rtc_jobs_file) as f:
             dict_jobs = json.load(f)
     else:
         dict_jobs = {}
