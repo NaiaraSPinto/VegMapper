@@ -2,11 +2,11 @@ import os
 import h5py
 import numpy as np
 import pandas as pd
-
-
-pd.options.mode.chained_assignment = None
 import warnings
 
+from .data_download import download_from_lpdaac, delete_local_files, divide_download_file
+
+pd.options.mode.chained_assignment = None
 warnings.filterwarnings("ignore")
 
 #h5FilesToProcess = r"C:\Users\conductor\Desktop\Oil_Palm_Mapping\cmr_spatial_query_demo\DDD_demo\daac_data_download_python\h5_files.txt"
@@ -145,7 +145,14 @@ def processBeams(gediL2A, h5file, csv_files, rh_cols):
         return
 
 
-def readH5Files(h5FilesToProcess, sourceDirectory, csv_files, rh_cols):
+def readH5Files(h5FilesToProcess, sourceDirectory):
+    csv_files = []  ## list that keeps track of all csv files generated
+
+    ##generate column names for rh vals (ranges 1-100)
+    rh_cols = []
+    for i in range(101):
+        rh_cols.append('rh' + str(i))
+
     f = open(h5FilesToProcess, "r")
 
     for h5file in f.readlines():
@@ -161,3 +168,83 @@ def readH5Files(h5FilesToProcess, sourceDirectory, csv_files, rh_cols):
             processBeams(gediL2A, h5file, csv_files, rh_cols)
 
 
+def divide_download_process_and_delete_h5_files(h5_download_file, work_dir, runName, token):
+    #Define a save_dir sub directory for the run in the work directory
+    save_dir = os.path.join(work_dir, runName)
+
+    #define a log file that lives in that save_dir. note the way this processing
+    # is logged is super sloppy. This could be cleaned up, but its better than nothing
+    logfile = os.path.join(save_dir, f'{runName}_log.txt')
+
+    print(f' Files will be processed in {save_dir}')
+    print(f'logfile for {runName}: {logfile}')
+
+    # create save directory if it doesnt already exist
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+
+    # split the h5 file with a massive amount of files into individual files (.download extension)
+    divided_h5_download_files = divide_download_file(h5_download_file, save_dir)
+
+    # Trackers for what gets processed/not_processed
+    files_successfully_processed = []
+    files_not_processed = []
+    i = 1
+
+    #loop through each input text file with url to wget
+    for file in divided_h5_download_files:
+        print(f'<----Processing file {i}/{len(divided_h5_download_files)}:\t{file}---->')
+
+        # This file <h5 file name>.txt contains the name of the h5 file once it is downloaded.
+        # This is used to keep track of which file needs to be processed, and later removed
+        downloaded_file_tracker = os.path.join(save_dir,
+                                               os.path.basename(file).split(
+                                                   '.')[0] + '.txt')
+
+        # Download the h5 file
+        download_from_lpdaac(
+            h5_download_file=file,
+            out_text_file_name=downloaded_file_tracker,
+            save_dir=save_dir,
+            token=token
+        )
+        # Process the H5 file
+        readH5Files(downloaded_file_tracker, save_dir)
+
+        # Verify that a .csv file was produced
+        expected_output_file = os.path.join(save_dir,
+                                            os.path.basename(file).split('.')[
+                                                0] + '.csv')
+
+        if os.path.exists(expected_output_file) == True:
+            print(f'Expected output file exists: {expected_output_file}')
+            files_successfully_processed.append(file)
+        elif os.path.exists(expected_output_file) != True:
+            print(
+                f'ERROR expected output file not found: {expected_output_file}')
+            files_not_processed.append(file)
+
+        # remove .h5 file and .txt
+        delete_local_files(downloaded_file_tracker, save_dir)  # Delete H5 file
+        os.remove(downloaded_file_tracker)  # delete tracker file
+        print(f' Deleted .h5 file and intermediate .txt file')
+
+        print(
+            f'<----Processing Completed for File {i}/{len(divided_h5_download_files)}:\t{file}---->\n')
+        i += 1
+
+    # Write to logfile
+    with open(logfile, 'w') as fw:
+        # Write succesfully processed files
+        fw.writelines(
+            f'Successfully processed files: {len(files_successfully_processed)}\n')
+        for file in files_successfully_processed:
+            fw.writelines(f'{file}\n')
+
+        # Write files that failed to process
+        fw.writelines(f'Files failed to process: {len(files_not_processed)}\n')
+        for file in files_not_processed:
+            fw.writelines(f'{file}\n')
+
+    print(
+        f'##### PROCESSING COMPLETE, Successfully processed {len(files_successfully_processed)}/{len(divided_h5_download_files)} files, see details in logfile located at {logfile}')
