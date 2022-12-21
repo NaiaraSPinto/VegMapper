@@ -227,6 +227,7 @@ def divide_download_process_and_delete_h5_files(h5_download_file, work_dir, runN
         # remove .h5 file and .txt
         delete_local_files(downloaded_file_tracker, save_dir)  # Delete H5 file
         os.remove(downloaded_file_tracker)  # delete tracker file
+        os.remove(file)  # delete .download file
         print(f' Deleted .h5 file and intermediate .txt file')
 
         print(
