@@ -256,3 +256,4 @@ def divide_download_process_and_delete_h5_files(h5_download_file, work_dir, runN
             f'##### PROCESSING COMPLETE, Successfully processed {len(files_successfully_processed)}/{len(divided_h5_download_files)} files, see details in logfile located at {logfile}')
     except AssertionError as err:
         print(err)
+        return -1
