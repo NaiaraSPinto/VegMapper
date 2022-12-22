@@ -169,7 +169,7 @@ def readH5Files(h5FilesToProcess, sourceDirectory):
 
 
 def divide_download_process_and_delete_h5_files(h5_download_file, work_dir, runName, token):
-    
+
     #Verify that the h5 download file exists, if not error eout of the function
     assert os.path.exists(h5_download_file), f"Input H5 file not found! {h5_download_file}"
     
@@ -197,46 +197,50 @@ def divide_download_process_and_delete_h5_files(h5_download_file, work_dir, runN
 
     #loop through each input text file with url to wget
     for file in divided_h5_download_files:
-        print(f'<----Processing file {i}/{len(divided_h5_download_files)}:\t{file}---->')
+        try:
+            print(f'<----Processing file {i}/{len(divided_h5_download_files)}:\t{file}---->')
 
-        # This file <h5 file name>.txt contains the name of the h5 file once it is downloaded.
-        # This is used to keep track of which file needs to be processed, and later removed
-        downloaded_file_tracker = os.path.join(save_dir,
-                                            os.path.basename(file).split(
-                                                '.')[0] + '.txt')
+            # This file <h5 file name>.txt contains the name of the h5 file once it is downloaded.
+            # This is used to keep track of which file needs to be processed, and later removed
+            downloaded_file_tracker = os.path.join(save_dir,
+                                                os.path.basename(file).split(
+                                                    '.')[0] + '.txt')
 
-        # Download the h5 file
-        download_from_lpdaac(
-            h5_download_file=file,
-            out_text_file_name=downloaded_file_tracker,
-            save_dir=save_dir,
-            token=token
-        )
-        # Process the H5 file
-        readH5Files(downloaded_file_tracker, save_dir)
+            # Download the h5 file
+            download_from_lpdaac(
+                h5_download_file=file,
+                out_text_file_name=downloaded_file_tracker,
+                save_dir=save_dir,
+                token=token
+            )
+            # Process the H5 file
+            readH5Files(downloaded_file_tracker, save_dir)
 
-        # Verify that a .csv file was produced
-        expected_output_file = os.path.join(save_dir,
-                                            os.path.basename(file).split('.')[
-                                                0] + '.csv')
+        except Exception as err:
+            print(err)
+        finally:
+            # Verify that a .csv file was produced
+            expected_output_file = os.path.join(save_dir,
+                                                os.path.basename(file).split('.')[
+                                                    0] + '.csv')
 
-        if os.path.exists(expected_output_file) == True:
-            print(f'Expected output file exists: {expected_output_file}')
-            files_successfully_processed.append(file)
-        elif os.path.exists(expected_output_file) != True:
+            if os.path.exists(expected_output_file) == True:
+                print(f'Expected output file exists: {expected_output_file}')
+                files_successfully_processed.append(file)
+            elif os.path.exists(expected_output_file) != True:
+                print(
+                    f'ERROR expected output file not found: {expected_output_file}')
+                files_not_processed.append(file)
+
+            # remove .h5 file and .txt
+            delete_local_files(downloaded_file_tracker, save_dir)  # Delete H5 file
+            os.remove(downloaded_file_tracker)  # delete tracker file
+            os.remove(file)  # delete .download file
+            print(f' Deleted .h5 file and intermediate .txt file')
+
             print(
-                f'ERROR expected output file not found: {expected_output_file}')
-            files_not_processed.append(file)
-
-        # remove .h5 file and .txt
-        delete_local_files(downloaded_file_tracker, save_dir)  # Delete H5 file
-        os.remove(downloaded_file_tracker)  # delete tracker file
-        os.remove(file)  # delete .download file
-        print(f' Deleted .h5 file and intermediate .txt file')
-
-        print(
-            f'<----Processing Completed for File {i}/{len(divided_h5_download_files)}:\t{file}---->\n')
-        i += 1
+                f'<----Processing Completed for File {i}/{len(divided_h5_download_files)}:\t{file}---->\n')
+            i += 1
 
     # Write to logfile
     with open(logfile, 'w') as fw:
@@ -250,6 +254,7 @@ def divide_download_process_and_delete_h5_files(h5_download_file, work_dir, runN
         fw.writelines(f'Files failed to process: {len(files_not_processed)}\n')
         for file in files_not_processed:
             fw.writelines(f'{file}\n')
+    
 
-    print(
-        f'##### PROCESSING COMPLETE, Successfully processed {len(files_successfully_processed)}/{len(divided_h5_download_files)} files, see details in logfile located at {logfile}')
+    print(f'##### PROCESSING COMPLETE, Successfully processed {len(files_successfully_processed)}/{len(divided_h5_download_files)} files, see details in logfile located at {logfile}')
+    
