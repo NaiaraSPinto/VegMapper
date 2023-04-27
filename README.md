@@ -20,9 +20,9 @@ Follow steps on [CLOUD.md](./CLOUD.md).
 
 After Miniconda is istalled, install [jupyterlab](https://jupyterlab.readthedocs.io/en/stable/), [mamba](https://github.com/mamba-org/mamba), and [kernda](https://github.com/vericast/kernda) into the base environment by running:
 
-```
+`````
 conda install -n base -c conda-forge jupyterlab mamba kernda
-```
+`````
 
 ## 3. Running JupyterLab on a remote server (EC2)
 
