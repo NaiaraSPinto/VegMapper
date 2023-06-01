@@ -1,27 +1,23 @@
-# To use:
-#
-#   $ conda env create -f environment.yml
-#   $ conda activate vegmapper
-#
 name: vegmapper
 channels:
   - conda-forge
 dependencies:
+  - asf_search
   - boto3
-  - certifi
-  - dask
   - earthengine-api
   - gdal
   - geopandas
   - gsutil
   - h5py
   - hyp3_sdk
+  - ipywidgets
   - jupyterlab
+  - kernda
   - numpy
   - opencv
   - pandas
   - python=3.9
   - rasterio
   - requests
-  - unidecode
+  - s3fs
   - wget
