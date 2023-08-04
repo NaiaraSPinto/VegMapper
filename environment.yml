@@ -21,3 +21,69 @@ dependencies:
   - requests
   - s3fs
   - wget
+  - pip
+  - pip:
+    - appdirs
+    - asciitree
+    - cftime
+    - cloudpickle
+    - cmake
+    - configobj
+    - cuda-python
+    - tqdm --index-url https://download.pytorch.org/whl/cu118
+    - torch --index-url https://download.pytorch.org/whl/cu118
+    - torchvision  --index-url https://download.pytorch.org/whl/cu118
+    - --extra-index-url https://pypi.nvidia.com
+    - cuml-cu11
+    - cupy-cuda11x
+    - cython
+    - dask
+    - dask-cuda
+    - dask-glm
+    - dask-ml
+    - diplib
+    - distributed
+    - fastrlock
+    - filelock
+    - fsspec
+    - geocube
+    - gputil
+    - imageio
+    - lazy-loader
+    - lit
+    - llvmlite
+    - locket
+    - mpmath
+    - msgpack
+    - multipledispatch
+    - netcdf4
+    - numba
+    - numcodecs
+    - numpy
+    - nvtx
+    - odc-geo
+    - pandas
+    - partd
+    - pyarrow
+    - pykdtree
+    - pynvml
+    - pykdtree
+    - pynvml
+    - pyresample
+    - pywavelets
+    - rioxarray
+    - scikit-image
+    - sortedcontainers
+    - sympy
+    - tblib
+    - tifffile
+    - toolz
+    - treelite
+    - treelite-runtime
+    - triton
+    - xarray
+    - zarr
+    - zict
+
+
+
