@@ -91,39 +91,39 @@ def display(image, misc, palette=QUAL_PALETTE, zoom_level=7):
     map_.addLayer(image, vizParamsStrata, "Strata")
     return map_
 
-def display_samples(image, misc, samples_presence, samples_absence, 
-                    sample_color=['FF0000','0000FF'], palette=QUAL_PALETTE):
-    """
-    Display strata image with presence and absence samples.
+# def display_samples(image, misc, samples_presence, samples_absence, 
+#                     sample_color=['FF0000','0000FF'], palette=QUAL_PALETTE):
+#     """
+#     Display strata image with presence and absence samples.
 
-    Args:
-        image (ee.Image): The strata image.
-        misc (dict): A dictionary containing metadata.
-        samples_presence (ee.FeatureCollection): Presence samples.
-        samples_absence (ee.FeatureCollection): Absence samples.
-        sample_color (list): A list of color codes for sample visualization.
-        palette (list): A list of color codes for strata visualization.
+#     Args:
+#         image (ee.Image): The strata image.
+#         misc (dict): A dictionary containing metadata.
+#         samples_presence (ee.FeatureCollection): Presence samples.
+#         samples_absence (ee.FeatureCollection): Absence samples.
+#         sample_color (list): A list of color codes for sample visualization.
+#         palette (list): A list of color codes for strata visualization.
 
-    Returns:
-        geemap.Map: A map object with strata and sample layers displayed.
-    """
+#     Returns:
+#         geemap.Map: A map object with strata and sample layers displayed.
+#     """
     
-    vizParamsPres = {"color": sample_color[0]} ## red
-    vizParamsAbs = {"color": sample_color[1]} ## blue
+#     vizParamsPres = {"color": sample_color[0]} ## red
+#     vizParamsAbs = {"color": sample_color[1]} ## blue
 
-    map_ = geemap.Map()
-    #Specify the min and max labels and the color palette matching the labels.
-    vizParamsStrata = {'min': misc['category_min'], 'max': misc['category_max'], 
-                       'palette': palette}
+#     map_ = geemap.Map()
+#     #Specify the min and max labels and the color palette matching the labels.
+#     vizParamsStrata = {'min': misc['category_min'], 'max': misc['category_max'], 
+#                        'palette': palette}
 
-    #print(vizParamsStrata)
+#     #print(vizParamsStrata)
 
-    map_.addLayer(image, vizParamsStrata, "Strata")
-    map_.centerObject(image)
-    map_.addLayer(samples_presence, vizParamsPres, 'presence')
-    map_.addLayer(samples_absence, vizParamsAbs, 'absence')
-    map_.addLayerControl()
-    return map_
+#     map_.addLayer(image, vizParamsStrata, "Strata")
+#     map_.centerObject(image)
+#     map_.addLayer(samples_presence, vizParamsPres, 'presence')
+#     map_.addLayer(samples_absence, vizParamsAbs, 'absence')
+#     map_.addLayerControl()
+#     return map_
 
 
 def consolidate(strata_df, absenceCats, presenceCats):
