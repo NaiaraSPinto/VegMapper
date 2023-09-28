@@ -68,64 +68,6 @@ def analyze_strata_image(strata_path):
              "bbox":bbox}]
 
 
-def display(image, misc, palette=QUAL_PALETTE, zoom_level=7):
-
-    """
-    Display the strata image on the map.
-
-    Args:
-        image (ee.Image): The strata image.
-        misc (dict): A dictionary containing metadata.
-        palette (list): A list of color codes for visualization.
-        zoom_level (int): The initial zoom level of the map.
-
-    Returns:
-        geemap.Map: A map object with the strata image displayed.
-    """
-
-    #map_ = geemap.Map(center= map_center, zoom=zoom_level)
-    map_ = geemap.Map()
-    map_.centerObject(image, zoom_level)
-    vizParamsStrata = {'min': misc['category_min'], 'max': misc['category_max'], 
-                   'palette': palette}
-    map_.addLayer(image, vizParamsStrata, "Strata")
-    return map_
-
-# def display_samples(image, misc, samples_presence, samples_absence, 
-#                     sample_color=['FF0000','0000FF'], palette=QUAL_PALETTE):
-#     """
-#     Display strata image with presence and absence samples.
-
-#     Args:
-#         image (ee.Image): The strata image.
-#         misc (dict): A dictionary containing metadata.
-#         samples_presence (ee.FeatureCollection): Presence samples.
-#         samples_absence (ee.FeatureCollection): Absence samples.
-#         sample_color (list): A list of color codes for sample visualization.
-#         palette (list): A list of color codes for strata visualization.
-
-#     Returns:
-#         geemap.Map: A map object with strata and sample layers displayed.
-#     """
-    
-#     vizParamsPres = {"color": sample_color[0]} ## red
-#     vizParamsAbs = {"color": sample_color[1]} ## blue
-
-#     map_ = geemap.Map()
-#     #Specify the min and max labels and the color palette matching the labels.
-#     vizParamsStrata = {'min': misc['category_min'], 'max': misc['category_max'], 
-#                        'palette': palette}
-
-#     #print(vizParamsStrata)
-
-#     map_.addLayer(image, vizParamsStrata, "Strata")
-#     map_.centerObject(image)
-#     map_.addLayer(samples_presence, vizParamsPres, 'presence')
-#     map_.addLayer(samples_absence, vizParamsAbs, 'absence')
-#     map_.addLayerControl()
-#     return map_
-
-
 def consolidate(strata_df, absenceCats, presenceCats):
 
     """
