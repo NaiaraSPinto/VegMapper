@@ -156,3 +156,22 @@ def get_mode_and_occurence(row):
     occurrence = row.value_counts()[mode]/row.count()
       
     return mode, occurrence
+
+# A helper function to process a csv file
+def process_csv(csv_path):
+    """
+    A csv processing pipeline. This function takes a single csv file
+    and let it pass through a sequence of our pre-defined functions
+    return: a pandas dataframe of the processed csv.
+    """
+    print("processing: {}".format(csv_path))
+    df = load_csv(csv_path)
+    df = rename_cols(df, rename_dict)
+    check_exclusive(df, csv_path)
+
+    # if you want to combine Young and Mature, just recode both to be 1.
+    df = recode(df, recode_dict, label_name)
+
+    df = subset_cols(df, [*key_col,  *useful_col, label_name])
+
+    return df
