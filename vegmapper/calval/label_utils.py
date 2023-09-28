@@ -163,6 +163,13 @@ def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
     and let it pass through a sequence of our pre-defined functions
     return: a pandas dataframe of the processed csv.
     """
+    # Set columns to keep:
+    # key_col and label_name are used for joining users's datasets,
+    # columns in useful_col will not participate in joining
+    # and come from the first user instead to avoid repetition.
+    key_col = ["Point_ID", "Clust"]
+    label_name = "labeler"
+    useful_col = ["Lat", "Lon"]
     print("processing: {}".format(csv_path))
     df = load_csv(csv_path)
     df = rename_cols(df, rename_dict)
