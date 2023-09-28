@@ -88,17 +88,18 @@ def get_mode_and_occurence(row):
       
     return mode, occurrence
 
-def check_exclusive(df,csv_path, new_col_names):
+def check_exclusive(df, csv_path, new_col_names):
     """
     This function valids the label entry in the samples. For a single labeler, for a data point,
-    only one of the four (Young","Mature","Not" (Not Oil Palm), and "NotSure") can be labeled as
-    true.
-    E.g., if the "Young" is labeled as 100 (true), then the other three columns have to be 0. 
-    This function will print a Warning if the four classes are not mutually exclude in any entry.
-    This function will use hard-code column names "Young","Mature","Not", and "NotSure". Also, 'True'
-    is hard-coded as 100, and 'False' is hard-coded as 0.
+    only one of the label columns (e.g. presence, absence, and unsure) can be labeled as
+    true. Then, if one is labeled as 100 (true), the other columns have to be 0. 
+    This function will print a Warning if the classes are not mutually exclude in any entry.
+    This function uses 'True' as hard-coded 100, and 'False' as hard-coded  0.
     -args: 
     df: a pandas dataframe
+    csv_path: path to the CSVs
+    new_col_names: a list of desired column names
+
     No return 
     """
     
@@ -118,16 +119,13 @@ def check_exclusive(df,csv_path, new_col_names):
 def recode(df, recode_dict, label_name, new_col_names):
     """
     Create a new column called label. Fill this class column based on labels
-    0: Not
-    1: Young
-    2: Mature
-    3: NotSure
     *Use check_exclusive() first to make sure there is one and only one column = 100.
     
     -args:
     df: a pandas dataframe
     recode_dict: a dictionary with {col1:[old_value,new_value], col2:[old_value, new_value]}
-    
+    label_name: a list of labels
+    new_col_names:a list of desired column names
     return: a pandas dataframe with recode values
     """
     df = df.copy()
