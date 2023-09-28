@@ -156,7 +156,7 @@ def combine_labelers(pd_list,by=["Point_ID","Clust"], label_name="label"):
     base = rename_cols(base, {label_name:label_name + '_1'})
     return base
 
-def process_csv(csv_path, rename_dict, recode_dict):
+def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
 
     """
     A csv processing pipeline. This function takes a single csv file
