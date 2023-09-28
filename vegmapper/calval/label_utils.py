@@ -57,75 +57,6 @@ def rename_cols(df, update_dict):
     return df
 
 
-def check_exclusive(df,csv_path):
-    """
-    This function valids the label entry in the samples. For a single labeler, for a data point,
-    only one of the four (Young","Mature","Not" (Not Oil Palm), and "NotSure") can be labeled as
-    true.
-    E.g., if the "Young" is labeled as 100 (true), then the other three columns have to be 0. 
-    This function will print a Warning if the four classes are not mutually exclude in any entry.
-    This function will use hard-code column names "Young","Mature","Not", and "NotSure". Also, 'True'
-    is hard-coded as 100, and 'False' is hard-coded as 0.
-    -args: 
-    df: a pandas dataframe
-    No return 
-    """
-    
-    df = df.copy()
-        
-    # sum of each row should equals 100
-    check_sum = df[["Young","Mature","Not","NotSure"]].sum(axis=1, skipna=False)
-    if check_sum.isin([100]).all():
-        print("The labeled classes are mutually exclusive.")
-    else:
-        warnings.warn('Found at least one entry(s) that does not have mutually exclusive labels.\n\
-        >>>file: {}<<<\n\
-        Check your columns "Young","Mature","Not", and "NotSure".\n\
-        (1)Make sure no empty entry in those columns.\n\
-        (2)Make sure there is one and only one column is labeled as 100.'.format(csv_path))
-
-def recode(df, recode_dict, label_name):
-    """
-    Create a new column called label. Fill this class column based on labels
-    0: Not
-    1: Young
-    2: Mature
-    3: NotSure
-    *Use check_exclusive() first to make sure there is one and only one column = 100.
-    
-    -args:
-    df: a pandas dataframe
-    recode_dict: a dictionary with {col1:[old_value,new_value], col2:[old_value, new_value]}
-    
-    return: a pandas dataframe with recode values
-    """
-    df = df.copy()
-    
-    # collapse sparse matrix into a list. For each row, the label with 100 will be selected.
-    df_densemat = df[["Young","Mature","Not","NotSure"]].idxmax(axis=1)
-    
-    # create a column called "label", fill with the label list.
-    df = df.assign(**{label_name:df_densemat})
-    
-    df.replace({label_name: recode_dict},inplace=True)
-    
-    return df
-
-def combine_labelers(pd_list,by=["Point_ID","Clust"], label_name="label"):
-    """
-    user 1's label will be like "label_1"; 
-    user 2 is "label_2" etc...
-    """
-    base = pd_list[0]
-    
-    # user 2's suffix is 2 (by setting enumerate idx start=2) 
-    if len(pd_list)>1:
-        for idx, i in enumerate(pd_list[1:], start=2):
-            base = pd.merge(base, i[[*by, label_name]], how = 'left',on=by, suffixes =(None, '_'+str(idx)))
-
-    # let the first user to be "_1"
-    base = rename_cols(base, {label_name:label_name + '_1'})
-    return base
 
 def find_mode(df):
     """
@@ -157,8 +88,77 @@ def get_mode_and_occurence(row):
       
     return mode, occurrence
 
-# A helper function to process a csv file
-def process_csv(csv_path, rename_dict):
+def check_exclusive(df,csv_path, new_col_names):
+    """
+    This function valids the label entry in the samples. For a single labeler, for a data point,
+    only one of the four (Young","Mature","Not" (Not Oil Palm), and "NotSure") can be labeled as
+    true.
+    E.g., if the "Young" is labeled as 100 (true), then the other three columns have to be 0. 
+    This function will print a Warning if the four classes are not mutually exclude in any entry.
+    This function will use hard-code column names "Young","Mature","Not", and "NotSure". Also, 'True'
+    is hard-coded as 100, and 'False' is hard-coded as 0.
+    -args: 
+    df: a pandas dataframe
+    No return 
+    """
+    
+    df = df.copy()
+        
+    # sum of each row should equals 100
+    check_sum = df[new_col_names].sum(axis=1, skipna=False)
+    if check_sum.isin([100]).all():
+        print("The labeled classes are mutually exclusive.")
+    else:
+        warnings.warn('Found at least one entry(s) that does not have mutually exclusive labels.\n\
+        >>>file: {}<<<\n\
+        Check your columns values.\n\
+        (1)Make sure no empty entry in those columns.\n\
+        (2)Make sure there is one and only one column is labeled as 100.'.format(csv_path))
+
+def recode(df, recode_dict, label_name, new_col_names):
+    """
+    Create a new column called label. Fill this class column based on labels
+    0: Not
+    1: Young
+    2: Mature
+    3: NotSure
+    *Use check_exclusive() first to make sure there is one and only one column = 100.
+    
+    -args:
+    df: a pandas dataframe
+    recode_dict: a dictionary with {col1:[old_value,new_value], col2:[old_value, new_value]}
+    
+    return: a pandas dataframe with recode values
+    """
+    df = df.copy()
+    
+    # collapse sparse matrix into a list. For each row, the label with 100 will be selected.
+    df_densemat = df[new_col_names].idxmax(axis=1)
+    
+    # create a column called "label", fill with the label list.
+    df = df.assign(**{label_name:df_densemat})
+    
+    df.replace({label_name: recode_dict},inplace=True)
+    
+    return df
+
+def combine_labelers(pd_list,by=["Point_ID","Clust"], label_name="label"):
+    """
+    user 1's label will be like "label_1"; 
+    user 2 is "label_2" etc...
+    """
+    base = pd_list[0]
+    
+    # user 2's suffix is 2 (by setting enumerate idx start=2) 
+    if len(pd_list)>1:
+        for idx, i in enumerate(pd_list[1:], start=2):
+            base = pd.merge(base, i[[*by, label_name]], how = 'left',on=by, suffixes =(None, '_'+str(idx)))
+
+    # let the first user to be "_1"
+    base = rename_cols(base, {label_name:label_name + '_1'})
+    return base
+
+def process_csv(csv_path, rename_dict, recode_dict):
 
     """
     A csv processing pipeline. This function takes a single csv file
@@ -168,10 +168,10 @@ def process_csv(csv_path, rename_dict):
     print("processing: {}".format(csv_path))
     df = load_csv(csv_path)
     df = rename_cols(df, rename_dict)
-    check_exclusive(df, csv_path)
+    check_exclusive(df, csv_path, new_col_names)
 
     # if you want to combine Young and Mature, just recode both to be 1.
-    df = recode(df, recode_dict, label_name)
+    df = recode(df, recode_dict, label_name, new_col_names)
 
     df = subset_cols(df, [*key_col,  *useful_col, label_name])
 
