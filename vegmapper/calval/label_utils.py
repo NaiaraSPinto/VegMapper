@@ -158,7 +158,8 @@ def get_mode_and_occurence(row):
     return mode, occurrence
 
 # A helper function to process a csv file
-def process_csv(csv_path):
+def process_csv(csv_path, rename_dict):
+
     """
     A csv processing pipeline. This function takes a single csv file
     and let it pass through a sequence of our pre-defined functions
