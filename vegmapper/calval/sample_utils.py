@@ -69,7 +69,6 @@ def analyze_strata_image(strata_path):
 
 
 def consolidate(strata_df, absenceCats, presenceCats):
-
     """
     Args:
         strata_df (pd.DataFrame): DataFrame with category counts.
@@ -84,19 +83,23 @@ def consolidate(strata_df, absenceCats, presenceCats):
             - 'pct_area': Relative shares of binary classes based on total area
               of interest (in percentage).
     """
-
     strata_df = strata_df.copy()
     strata_df = strata_df[strata_df['Cat'].isin(absenceCats + presenceCats)]
 
     # consolidate the pixel count as presence and abscence
-    strata_df['Cat']=strata_df['Cat'].replace(absenceCats, 0)
-    strata_df['Cat']=strata_df['Cat'].replace(presenceCats, 1)
+    
+    subset_absence = strata_df[strata_df['Cat'].isin(absenceCats)].copy()
+    subset_absence['Cat']=subset_absence['Cat'].replace(absenceCats, 0)
+
+    subset_presence = strata_df[strata_df['Cat'].isin(presenceCats)].copy()
+    subset_presence['Cat']=subset_presence['Cat'].replace(presenceCats, 1)
+
+    strata_df = pd.concat([subset_absence,subset_presence], ignore_index=True)
+  
     strata_df = strata_df.groupby('Cat')['pixel_ct'].sum().reset_index()
 
-    # Calculate the relative shares of binary classes based on the total area of
-    # interest.
-    strata_df['pct_area'] = round(strata_df['pixel_ct']* 100/strata_df['pixel_ct'].sum(),
-                                   3)
+    # Calculate the relative shares of binary classes based on the total area of interest.
+    strata_df['pct_area'] = round(strata_df['pixel_ct']* 100/strata_df['pixel_ct'].sum(), 3)
     
     return strata_df
 
