@@ -140,20 +140,24 @@ def recode(df, recode_dict, label_name, new_col_names):
     
     return df
 
-def combine_labelers(pd_list,by=["Point_ID","Clust"], label_name="label"):
+def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label", fs=[]):
     """
     user 1's label will be like "label_1"; 
     user 2 is "label_2" etc...
     """
+    label_name = "labeler"
     base = pd_list[0]
     
     # user 2's suffix is 2 (by setting enumerate idx start=2) 
-    if len(pd_list)>1:
+    if len(pd_list) > 1:
         for idx, i in enumerate(pd_list[1:], start=2):
-            base = pd.merge(base, i[[*by, label_name]], how = 'left',on=by, suffixes =(None, '_'+str(idx)))
+            # Extract the last part of the file path without the ".csv" extension
+            file_name = os.path.splitext(os.path.basename(fs[idx - 1]))[0]
+            base = pd.merge(base, i[[*by, label_name]], how='left', on=by, suffixes=(None, file_name))
 
-    # let the first user to be "_1"
-    base = rename_cols(base, {label_name:label_name + '_1'})
+    # let the first user be "_1"
+    base = rename_cols(base, {label_name:os.path.splitext(os.path.basename(fs[0]))[0]})
+    base.columns = [col.replace(label_name, '') for col in base.columns]
     return base
 
 def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
