@@ -140,6 +140,7 @@ def recode(df, recode_dict, label_name, new_col_names):
     
     return df
 
+
 def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label", fs=[]):
     """
     user 1's label will be like "label_1"; 
@@ -155,8 +156,9 @@ def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label", fs=[]
             file_name = os.path.splitext(os.path.basename(fs[idx - 1]))[0]
             base = pd.merge(base, i[[*by, label_name]], how='left', on=by, suffixes=(None, file_name))
 
-    # let the first user be "_1"
+    # Renaming the first user column name
     base = rename_cols(base, {label_name:os.path.splitext(os.path.basename(fs[0]))[0]})
+    # Dropping label_name from the column names
     base.columns = [col.replace(label_name, '') for col in base.columns]
     return base
 
