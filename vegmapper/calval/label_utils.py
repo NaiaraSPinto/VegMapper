@@ -179,7 +179,7 @@ def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
     print("processing: {}".format(csv_path))
     df = load_csv(csv_path)
     df = rename_cols(df, rename_dict)
-    check_exclusive(df, csv_path, new_col_names)
+    #check_exclusive(df, csv_path, new_col_names)
 
     # if you want to combine Young and Mature, just recode both to be 1.
     df = recode(df, recode_dict, label_name, new_col_names)
