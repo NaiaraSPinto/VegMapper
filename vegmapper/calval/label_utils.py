@@ -240,11 +240,14 @@ def match_CEO_projects(file_path):
                     print(f"Row {row_index} -> {row1} != {row2}")
 
 def select_columns(file_path):
-    
+  
     """
     Process a CSV file, rename columns, and create new column categories.
 
-    - file_path (list of str): A list of file paths to the CSV files to be processed.
+    Takes: file_path (list of str): A list of file paths to the CSV files to be
+    processed.
+
+    Returns: new_col_names (list of str): A list of new column names.
     """
 
     df = pd.read_csv(file_path[0])
@@ -337,6 +340,7 @@ def select_columns(file_path):
                 not_sure_columns.extend(column_indices)
             if len(not_sure_columns) == len(column_indices):
                 break
+    
     rename_dict = {
         "plot_id": "Point_ID",
         "pl_cluster": "Clust",
@@ -353,3 +357,5 @@ def select_columns(file_path):
 
     print(rename_dict)
     print(new_col_names)
+    
+    return new_col_names
