@@ -44,7 +44,8 @@ def rename_cols(df, update_dict):
     
     """
     Update a pandas dataframe's column names use a dictionary. The function will
-    raise a ValueError if the user asks to change a column name that does not exist.
+    raise a ValueError if the user asks to change a column name that does 
+    not exist.
     -args:
     df: a pandas dataframe  
     update_dict: a dictionary with {old_name: new_name}
@@ -53,7 +54,8 @@ def rename_cols(df, update_dict):
     df = df.copy()
     
     if not set(update_dict.keys()).issubset(df.columns): 
-        raise ValueError("One or multiple old name(s) do not exist in the dataframe.")
+        raise ValueError("One or multiple old name(s) do not exist in the"
+                         " dataframe.")
     
     df.rename(columns=update_dict, inplace=True)
     
@@ -64,8 +66,13 @@ def rename_cols(df, update_dict):
 def find_mode(df):
     
     """
-    Create a concensus label called "mode_label" based on the most freqent label (mode) across labelers.
-    When there is a complete disagreement among labelers, give -9999
+    Create a concensus label called "mode_label" based on the most freqent label
+    (mode) across labelers. When there is a complete disagreement among labelers,
+    give -9999
+
+    -args:
+    df: a pandas dataframe
+    return: a pandas dataframe with updated column names
     """
     
     df = df.copy()
@@ -95,11 +102,12 @@ def get_mode_and_occurence(row):
 def check_exclusive(df, csv_path, new_col_names):
     
     """
-    This function valids the label entry in the samples. For a single labeler, for a data point,
-    only one of the label columns (e.g. presence, absence, and unsure) can be labeled as
-    true. Then, if one is labeled as 100 (true), the other columns have to be 0. 
-    This function will print a Warning if the classes are not mutually exclude in any entry.
-    This function uses 'True' as hard-coded 100, and 'False' as hard-coded  0.
+    This function valids the label entry in the samples. For a single labeler,
+    for a data point, only one of the label columns (e.g. presence, absence,
+    and unsure) can be labeled as true. Then, if one is labeled as 100 (true),
+    the other columns have to be 0. This function will print a Warning if the
+    classes are not mutually exclude in any entry. This function uses 'True' as
+    hard-coded 100, and 'False' as hard-coded  0.
     -args: 
     df: a pandas dataframe
     csv_path: path to the CSVs
@@ -115,28 +123,33 @@ def check_exclusive(df, csv_path, new_col_names):
     if check_sum.isin([100]).all():
         print("The labeled classes are mutually exclusive.")
     else:
-        warnings.warn('Found at least one entry(s) that does not have mutually exclusive labels.\n\
+        warnings.warn('Found at least one entry(s) that does not have mutually'\
+                       'exclusive labels.\n\
         >>>file: {}<<<\n\
         Check your columns values.\n\
         (1)Make sure no empty entry in those columns.\n\
-        (2)Make sure there is one and only one column is labeled as 100.'.format(csv_path))
+        (2)Make sure there is one and only one column is labeled as 100.'
+        .format(csv_path))
 
 def recode(df, recode_dict, label_name, new_col_names):
     
     """
     Create a new column called label. Fill this class column based on labels
-    *Use check_exclusive() first to make sure there is one and only one column = 100.
+    *Use check_exclusive() first to make sure there is one and only one column
+    = 100.
     
     -args:
     df: a pandas dataframe
-    recode_dict: a dictionary with {col1:[old_value,new_value], col2:[old_value, new_value]}
+    recode_dict: a dictionary with {col1:[old_value,new_value], col2:[old_value,
+    new_value]}
     label_name: a list of labels
     new_col_names:a list of desired column names
     return: a pandas dataframe with recode values
     """
     df = df.copy()
     
-    # collapse sparse matrix into a list. For each row, the label with 100 will be selected.
+    # collapse sparse matrix into a list. For each row, the label with 100 will
+    # be selected.
     df_densemat = df[new_col_names].idxmax(axis=1)
     
     # create a column called "label", fill with the label list.
@@ -161,10 +174,12 @@ def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label", fs=[]
         for idx, i in enumerate(pd_list[1:], start=2):
             # Extract the last part of the file path without the ".csv" extension
             file_name = os.path.splitext(os.path.basename(fs[idx - 1]))[0]
-            base = pd.merge(base, i[[*by, label_name]], how='left', on=by, suffixes=(None, file_name))
+            base = pd.merge(base, i[[*by, label_name]], how='left', on=by,
+                             suffixes=(None, file_name))
 
     # Renaming the first user column name
-    base = rename_cols(base, {label_name:os.path.splitext(os.path.basename(fs[0]))[0]})
+    base = rename_cols(base, {label_name:os.path
+                              .splitext(os.path.basename(fs[0]))[0]})
     # Dropping label_name from the column names
     base.columns = [col.replace(label_name, '') for col in base.columns]
     return base
@@ -174,6 +189,13 @@ def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
     """
     A csv processing pipeline. This function takes a single csv file
     and let it pass through a sequence of our pre-defined functions
+    -args:
+    csv_path: path to the CSVs
+    new_col_names: a list of desired column names
+    rename_dict: A dictionary which the keys are old column 
+    recode_dict: a dictionary with {col1:[old_value,new_value], col2:[old_value,
+    new_value]} 
+
     return: a pandas dataframe of the processed csv.
     """
     # Set columns to keep:
@@ -186,7 +208,7 @@ def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
     print("processing: {}".format(csv_path))
     df = load_csv(csv_path)
     df = rename_cols(df, rename_dict)
-    #check_exclusive(df, csv_path, new_col_names)
+    check_exclusive(df, csv_path, new_col_names)
 
     # if you want to combine Young and Mature, just recode both to be 1.
     df = recode(df, recode_dict, label_name, new_col_names)
@@ -199,8 +221,10 @@ def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
 def match_CEO_projects(file_path):
     
     """    
-    Compare the content of multiple CSV files and identify differences in the data.
-    - file_path (list of str): A list of file paths to the CSV files to be compared.
+    Compare the content of multiple CSV files and identify differences in
+    the data.
+    - file_path (list of str): A list of file paths to the CSV files to be
+    compared.
     """
 
     def round_float(value):
@@ -265,7 +289,8 @@ def select_columns(file_path):
     )
     new_col_names = [name.strip() for name in new_col_names_input.split(',')]
 
-    unsure_category = input("Do you want to include an 'Unsure' category? (y/n): ")
+    unsure_category = input("Do you want to include an 'Unsure' category? (y/n):"
+                            " ")
     if unsure_category.lower() == 'y':
         new_col_names.append("Unsure")
 
@@ -287,7 +312,7 @@ def select_columns(file_path):
             column_name = df.columns[col_index]
             invalid_values = df[column_name][~df[column_name].isin([0, 100])]
             if not invalid_values.empty:
-                print(f"Warning: Invalid values found in column '{column_name}':\n"
+                print(f"Warning: Invalid values in column '{column_name}':\n"
                       f"{invalid_values.unique()}. Valid values are [0, 100].")
                 invalid_selection = True
                 break
@@ -310,7 +335,7 @@ def select_columns(file_path):
             column_name = df.columns[col_index]
             invalid_values = df[column_name][~df[column_name].isin([0, 100])]
             if not invalid_values.empty:
-                print(f"Warning: Invalid values found in column '{column_name}':\n"
+                print(f"Warning: Invalid values in column '{column_name}':\n"
                       f"{invalid_values.unique()}. Valid values are [0, 100].")
                 invalid_selection = True
                 break
