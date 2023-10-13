@@ -247,7 +247,10 @@ def select_columns(file_path):
     Takes: file_path (list of str): A list of file paths to the CSV files to be
     processed.
 
-    Returns: new_col_names (list of str): A list of new column names.
+    Returns: 
+    new_col_names (list of str): A list of new column names.
+    rename_dict (dictionary of str): A dictionary which the keys are old column
+    names and values are the new column names.
     """
 
     df = pd.read_csv(file_path[0])
@@ -358,4 +361,4 @@ def select_columns(file_path):
     print(rename_dict)
     print(new_col_names)
     
-    return new_col_names
+    return new_col_names, rename_dict
