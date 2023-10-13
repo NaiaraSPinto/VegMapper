@@ -187,3 +187,46 @@ def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
     df = subset_cols(df, [*key_col,  *useful_col, label_name])
 
     return df
+
+
+def match_CEO_projects(file_path):
+    """    
+    Compare the content of multiple CSV files and identify differences in the data.
+    - file_path (list of str): A list of file paths to the CSV files to be compared.
+    """
+
+    def round_float(value):
+        if isinstance(value, float):
+            return round(value, 7)
+        return value
+
+    data_dicts = []
+    file_names = []
+
+    for csv_file in fs:
+        df = pd.read_csv(csv_file)
+        df = df[['plot_id', 'center_lon', 'center_lat']].applymap(round_float)
+        data_dict = df.to_dict('records')
+        data_dicts.append(data_dict)
+        file_names.append(os.path.basename(csv_file))
+
+    match = True
+
+    for i in range(1, len(data_dicts)):
+        if data_dicts[0] != data_dicts[i]:
+            match = False
+            break
+
+    if match:
+        print("Samples are identical in all CSV files.")
+    else:
+        print("Samples must be the same in all CSV files.")
+        for i in range(1, len(data_dicts)):
+            differing_rows = []
+            for j, (row1, row2) in enumerate(zip(data_dicts[0], data_dicts[i])):
+                if row1 != row2:
+                    differing_rows.append((j, row1, row2))
+            if differing_rows:
+                print(f"Differences found in file '{file_names[i]}':")
+                for row_index, row1, row2 in differing_rows:
+                    print(f"Row {row_index} -> {row1} != {row2}")
