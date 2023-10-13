@@ -15,6 +15,7 @@ import os
 # read datasets into list, keep the most important columns, and do some renaming
 
 def load_csv(csv_path):
+    
     """
     Load a single csv file into a pandas dataframe.
     """
@@ -24,6 +25,7 @@ def load_csv(csv_path):
 
 
 def subset_cols(df, col_list):
+    
     """
     Keep the selected columns only.
     -args:
@@ -39,6 +41,7 @@ def subset_cols(df, col_list):
 
 
 def rename_cols(df, update_dict):
+    
     """
     Update a pandas dataframe's column names use a dictionary. The function will
     raise a ValueError if the user asks to change a column name that does not exist.
@@ -59,6 +62,7 @@ def rename_cols(df, update_dict):
 
 
 def find_mode(df):
+    
     """
     Create a concensus label called "mode_label" based on the most freqent label (mode) across labelers.
     When there is a complete disagreement among labelers, give -9999
@@ -89,6 +93,7 @@ def get_mode_and_occurence(row):
     return mode, occurrence
 
 def check_exclusive(df, csv_path, new_col_names):
+    
     """
     This function valids the label entry in the samples. For a single labeler, for a data point,
     only one of the label columns (e.g. presence, absence, and unsure) can be labeled as
@@ -117,6 +122,7 @@ def check_exclusive(df, csv_path, new_col_names):
         (2)Make sure there is one and only one column is labeled as 100.'.format(csv_path))
 
 def recode(df, recode_dict, label_name, new_col_names):
+    
     """
     Create a new column called label. Fill this class column based on labels
     *Use check_exclusive() first to make sure there is one and only one column = 100.
@@ -142,6 +148,7 @@ def recode(df, recode_dict, label_name, new_col_names):
 
 
 def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label", fs=[]):
+    
     """
     user 1's label will be like "label_1"; 
     user 2 is "label_2" etc...
@@ -190,6 +197,7 @@ def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
 
 
 def match_CEO_projects(file_path):
+    
     """    
     Compare the content of multiple CSV files and identify differences in the data.
     - file_path (list of str): A list of file paths to the CSV files to be compared.
@@ -230,3 +238,118 @@ def match_CEO_projects(file_path):
                 print(f"Differences found in file '{file_names[i]}':")
                 for row_index, row1, row2 in differing_rows:
                     print(f"Row {row_index} -> {row1} != {row2}")
+
+def select_columns(file_path):
+    
+    """
+    Process a CSV file, rename columns, and create new column categories.
+
+    - file_path (list of str): A list of file paths to the CSV files to be processed.
+    """
+
+    df = pd.read_csv(file_path[0])
+
+    print("\nColumn Names and Indices:")
+    for i, column in enumerate(df.columns):
+        print(f"{i}: {column}")
+
+    new_col_names_input = input(
+        "Enter the names you want to represent presence and absence\n"
+        " , separated by a comma (e.g. Presence, Absence): "
+    )
+    new_col_names = [name.strip() for name in new_col_names_input.split(',')]
+
+    unsure_category = input("Do you want to include an 'Unsure' category? (y/n): ")
+    if unsure_category.lower() == 'y':
+        new_col_names.append("Unsure")
+
+    presence_columns = []
+    absence_columns = []
+    not_sure_columns = []
+
+    while True:
+        column_indices_input = input(
+            f"Enter column indices to change to '{new_col_names[0]}' \n"
+            "(separate with commas): "
+        )
+        column_indices = [
+            int(index.strip())
+            for index in column_indices_input.rstrip(',').split(',')
+        ]
+        invalid_selection = False
+        for col_index in column_indices:
+            column_name = df.columns[col_index]
+            invalid_values = df[column_name][~df[column_name].isin([0, 100])]
+            if not invalid_values.empty:
+                print(f"Warning: Invalid values found in column '{column_name}':\n"
+                      f"{invalid_values.unique()}. Valid values are [0, 100].")
+                invalid_selection = True
+                break
+        if not invalid_selection:
+            presence_columns.extend(column_indices)
+        if len(presence_columns) == len(column_indices):
+            break
+
+    while True:
+        column_indices_input = input(
+            f"Enter column indices to change to '{new_col_names[1]}' \n"
+            "(separate with commas): "
+        )
+        column_indices = [
+            int(index.strip())
+            for index in column_indices_input.rstrip(',').split(',')
+        ]
+        invalid_selection = False
+        for col_index in column_indices:
+            column_name = df.columns[col_index]
+            invalid_values = df[column_name][~df[column_name].isin([0, 100])]
+            if not invalid_values.empty:
+                print(f"Warning: Invalid values found in column '{column_name}':\n"
+                      f"{invalid_values.unique()}. Valid values are [0, 100].")
+                invalid_selection = True
+                break
+        if not invalid_selection:
+            absence_columns.extend(column_indices)
+        if len(absence_columns) == len(column_indices):
+            break
+
+    if len(new_col_names) == 3:
+        while True:
+            column_indices_input = input(
+                f"Enter column indices to change to '{new_col_names[2]}' "
+                "(separate with commas): "
+            )
+            column_indices = [
+                int(index.strip())
+                for index in column_indices_input.rstrip(',').split(',')
+            ]
+            invalid_selection = False
+            for col_index in column_indices:
+                column_name = df.columns[col_index]
+                invalid_values = df[column_name][~df[column_name].isin([0, 100])]
+                if not invalid_values.empty:
+                    print(f"Warning: Invalid values found in column "
+                          f"'{column_name}': {invalid_values.unique()}. "
+                          "Valid values are [0, 100].")
+                    invalid_selection = True
+                    break
+            if not invalid_selection:
+                not_sure_columns.extend(column_indices)
+            if len(not_sure_columns) == len(column_indices):
+                break
+    rename_dict = {
+        "plot_id": "Point_ID",
+        "pl_cluster": "Clust",
+        "center_lat": "Lat",
+        "center_lon": "Lon"
+    }
+    for i, column in enumerate(df.columns):
+        if i in presence_columns:
+            rename_dict[column] = new_col_names[0]
+        elif i in absence_columns:
+            rename_dict[column] = new_col_names[1]
+        elif i in not_sure_columns:
+            rename_dict[column] = new_col_names[2]
+
+    print(rename_dict)
+    print(new_col_names)
