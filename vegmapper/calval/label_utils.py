@@ -203,7 +203,7 @@ def match_CEO_projects(file_path):
     data_dicts = []
     file_names = []
 
-    for csv_file in fs:
+    for csv_file in file_path:
         df = pd.read_csv(csv_file)
         df = df[['plot_id', 'center_lon', 'center_lat']].applymap(round_float)
         data_dict = df.to_dict('records')
