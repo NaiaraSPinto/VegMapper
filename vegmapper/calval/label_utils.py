@@ -75,7 +75,7 @@ def find_mode(df):
     return df
 
 # Function to get mode and occurrence by row (credit to ChatGPT)
-def get_mode_and_occurence(row):
+def get_mode_occurence(row):
     """
     Get modal and the occurance of modal (a ratio) for each row.
     This function will be applied to each row of a pandas dataframe.
@@ -84,7 +84,7 @@ def get_mode_and_occurence(row):
     return two value
     """
     mode = row.mode().values[0]
-    occurrence = row.value_counts()[mode]/row.count()
+    occurrence = row.value_counts()[mode] / len(row)
       
     return mode, occurrence
 
@@ -147,6 +147,7 @@ def recode(df, recode_dict, label_name, new_col_names):
     df = df.assign(**{label_name:df_densemat})
     
     df.replace({label_name: recode_dict},inplace=True)
+    df['label_name'] = df['label_name'].astype(int)
     
     return df
 
