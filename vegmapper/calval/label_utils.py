@@ -83,9 +83,14 @@ def get_mode_occurence(row):
     row: a row that only includes labeler's labels
     return two value
     """
-    mode = row.mode().values[0]
-    occurrence = row.value_counts()[mode] / len(row)
-      
+    mode_values = row.mode().values
+    if len(mode_values) > 0:
+        mode = mode_values[0]
+        occurrence = row.value_counts()[mode] / len(row)
+    else:
+        mode = np.nan
+        occurrence = 0.0
+
     return mode, occurrence
 
 
