@@ -147,7 +147,6 @@ def recode(df, recode_dict, label_name, new_col_names):
     df = df.assign(**{label_name:df_densemat})
     
     df.replace({label_name: recode_dict},inplace=True)
-    df['label_name'] = df['label_name'].astype(int)
     
     return df
 
