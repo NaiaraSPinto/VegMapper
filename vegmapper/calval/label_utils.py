@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import re
 import random
+import pdb
+
 
 #from google.colab import drive
 from datetime import datetime as dt
@@ -118,6 +120,11 @@ def check_exclusive(fs, rename_dict):
             file_name = os.path.basename(file_path)
             print(f"{len(problematic_rows)} problematic rows found in {file_name}:")
 
+            problematic_mask = df.index.isin([row_index for (_, row_index) in problematic_rows])
+
+            for col in col_names:
+                df.loc[problematic_mask, col] = 'NA'
+
 
 def recode(df, recode_dict, label_name, new_col_names):
     """
@@ -180,8 +187,8 @@ def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
     
     print("processing: {}".format(csv_path))
     
-    check_exclusive([csv_path], rename_dict)
     df = load_csv(csv_path)
+    df = check_exclusive([csv_path], rename_dict)
     df = rename_cols(df, rename_dict)
 
     # if you want to combine Young and Mature, just recode both to be 1.
