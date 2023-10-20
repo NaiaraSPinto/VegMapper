@@ -100,42 +100,38 @@ def get_mode_and_occurence(row):
     return mode, occurrence
 
 def check_exclusive(fs, rename_dict):
-    
+
     """
     Check and modify CSV files based on the sum of values in specified columns.
 
     This function iterates through a list of CSV files and checks the sum of 
     values in specified columns. If the sum of values in the columns is not 
-    equal to 100 for any row, it identifies and optionally removes the
-    problematic rows from the CSV files based on user input.
+    equal to 100 for any row, it identifies and removes the
+    problematic rows from the related CSV file.
 
     - args:
-    fs (list): A list of file paths to the CSV files to be processed.
-    rename_dict (dict): A dictionary containing column names.
+    fs: A list of file paths to the CSV files to be processed.
+    rename_dict: A dictionary containing column names.
     """
     
-    failed_rows = []
     col_names = list(rename_dict.keys())
     col_names = col_names[4:]
+    problematic_rows = []
 
     for file_path in fs:
         df = pd.read_csv(file_path)
-
+    
         for index, row in df.iterrows():
             row_sum = row[col_names].sum()
             if row_sum != 100:
-                failed_rows.append(file_path)
-    if failed_rows:
-        file_name = os.path.basename(file_path)
-        print(f"{len(failed_rows)} problematic rows found in {file_name}:")
-        
-        choice = input("Do you want to remove these rows? (y/n): ")
+                problematic_rows.append((file_path, index))
 
-        if choice.lower() == "y":
-            for file_name in failed_rows:
-                df = df[df["file_name"] != file_name]
-
-            df.to_csv(file_path, index=False)
+        if problematic_rows:
+            file_name = os.path.basename(file_path)
+            print(f"{len(problematic_rows)} problematic rows found in {file_name}:")
+            
+            for file_name, row_index in problematic_rows:
+                df = df.drop(row_index)
 
 def recode(df, recode_dict, label_name, new_col_names):
     
