@@ -17,8 +17,13 @@ import os
 # read datasets into list, keep the most important columns, and do some renaming
 
 def load_csv(csv_path):
+
     """
     Load a single csv file into a pandas dataframe.
+    - args:
+    csv_path: the path (str) to the CSV file to be loaded
+    - return:
+    csv_data: a pandas DataFrame containing the data from the CSV file.
     """
     csv_data = pd.read_csv(csv_path, index_col=False)
     
@@ -26,24 +31,25 @@ def load_csv(csv_path):
 
 
 def subset_cols(df, col_list):
+
     """
     Keep the selected columns only.
     -args:
     df: a pandas dataframe
     col_list: list of selected columns
-    return: a pandas dataframe with only selected columns
+    - return: a pandas dataframe with only selected columns
     """
     
     df = df.copy()
 
     return df.loc[:, col_list]
 
-
-
 def rename_cols(df, update_dict):
+
     """
     Update a pandas dataframe's column names use a dictionary. The function will
-    raise a ValueError if the user asks to change a column name that does not exist.
+    raise a ValueError if the user asks to change a column name that does not
+    exist.
     -args:
     df: a pandas dataframe  
     update_dict: a dictionary with {old_name: new_name}
@@ -52,15 +58,18 @@ def rename_cols(df, update_dict):
     df = df.copy()
     
     if not set(update_dict.keys()).issubset(df.columns): 
-        raise ValueError("One or multiple old name(s) do not exist in the dataframe.")
+        raise ValueError("One or multiple old name(s) do not exist in the\
+                          dataframe.")
     
     df.rename(columns=update_dict, inplace=True)
     
     return df
 
 def find_mode(df):
+    
     """
-    Create a concensus label called "mode_label" based on the most freqent label (mode) across labelers.
+    Create a concensus label called "mode_label" based on the most freqent label
+    (mode) across labelers.
     When there is a complete disagreement among labelers, give -9999
     """
     
@@ -74,8 +83,8 @@ def find_mode(df):
 
     return df
 
-# Function to get mode and occurrence by row (credit to ChatGPT)
 def get_mode_occurence(row):
+
     """
     Get modal and the occurance of modal (a ratio) for each row.
     This function will be applied to each row of a pandas dataframe.
@@ -123,9 +132,11 @@ def check_exclusive(fs, rename_dict):
 
         if problematic_rows:
             file_name = os.path.basename(file_path)
-            print(f"{len(problematic_rows)} problematic rows found in {file_name}:")
+            print(f"{len(problematic_rows)} problematic rows found in\
+                   {file_name}:")
 
-            problematic_mask = df.index.isin([row_index for (_, row_index) in problematic_rows])
+            problematic_mask = df.index.isin([row_index for (_, row_index) in\
+                                               problematic_rows])
 
             for col in col_names:
                 df.loc[problematic_mask, col] = np.nan
@@ -133,19 +144,23 @@ def check_exclusive(fs, rename_dict):
 
 
 def recode(df, recode_dict, label_name, new_col_names):
+    
     """
     Create a new column called label. Fill this class column based on labels
-    *Use check_exclusive() first to make sure there is one and only one column = 100.
+    *Use check_exclusive() first to make sure there is one and only 
+    one column = 100.
     
     -args:
     df: a pandas dataframe
-    recode_dict: a dictionary with {col1:[old_value,new_value], col2:[old_value, new_value]}
+    recode_dict: a dictionary with {col1:[old_value,new_value], col2:[old_value,
+    new_value]}
     
     return: a pandas dataframe with recode values
     """
     df = df.copy()
     
-    # collapse sparse matrix into a list. For each row, the label with 100 will be selected.
+    # collapse sparse matrix into a list. For each row, the label with 100 will
+    #  be selected.
     df_densemat = df[new_col_names].idxmax(axis=1)
     
     # create a column called "label", fill with the label list.
@@ -155,7 +170,9 @@ def recode(df, recode_dict, label_name, new_col_names):
     
     return df
 
-def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label", fs=[]):
+def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label",\
+                      fs=[]):
+    
     """
     user 1's label will be like "label_1"; 
     user 2 is "label_2" etc...
@@ -166,12 +183,15 @@ def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label", fs=[]
     # user 2's suffix is 2 (by setting enumerate idx start=2) 
     if len(pd_list) > 1:
         for idx, i in enumerate(pd_list[1:], start=2):
-            # Extract the last part of the file path without the ".csv" extension
+            # Extract the last part of the file path without the ".csv" 
+            # extension
             file_name = os.path.splitext(os.path.basename(fs[idx - 1]))[0]
-            base = pd.merge(base, i[[*by, label_name]], how='left', on=by, suffixes=(None, file_name))
+            base = pd.merge(base, i[[*by, label_name]], how='left', on=by,\
+                             suffixes=(None, file_name))
 
     # Renaming the first user column name
-    base = rename_cols(base, {label_name:os.path.splitext(os.path.basename(fs[0]))[0]})
+    base = rename_cols(base, {label_name:os.path\
+                              .splitext(os.path.basename(fs[0]))[0]})
     # Dropping label_name from the column names
     base.columns = [col.replace(label_name, '') for col in base.columns]
     return base
@@ -207,8 +227,10 @@ def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
 def match_CEO_projects(file_path):
     
     """    
-    Compare the content of multiple CSV files and identify differences in the data.
-    - file_path (list of str): A list of file paths to the CSV files to be compared.
+    Compare the content of multiple CSV files and identify differences in the 
+    data.
+    - file_path (list of str): A list of file paths to the CSV files to be 
+    compared.
     """
 
     def round_float(value):
@@ -274,7 +296,8 @@ def select_columns(file_path):
     )
     new_col_names = [name.strip() for name in new_col_names_input.split(',')]
 
-    unsure_category = input("Do you want to include an 'Unsure' category? (y/n): ")
+    unsure_category = input("Do you want to include an 'Unsure' category?\
+                             (y/n): ")
     if unsure_category.lower() == 'y':
         new_col_names.append("Unsure")
 
@@ -296,7 +319,8 @@ def select_columns(file_path):
             column_name = df.columns[col_index]
             invalid_values = df[column_name][~df[column_name].isin([0, 100])]
             if not invalid_values.empty:
-                print(f"Warning: Invalid values found in column '{column_name}':\n"
+                print(f"Warning: Invalid values found in column '{column_name}'\
+                      :\n"
                       f"{invalid_values.unique()}. Valid values are [0, 100].")
                 invalid_selection = True
                 break
@@ -319,7 +343,8 @@ def select_columns(file_path):
             column_name = df.columns[col_index]
             invalid_values = df[column_name][~df[column_name].isin([0, 100])]
             if not invalid_values.empty:
-                print(f"Warning: Invalid values found in column '{column_name}':\n"
+                print(f"Warning: Invalid values found in column '{column_name}'\
+                      :\n"
                       f"{invalid_values.unique()}. Valid values are [0, 100].")
                 invalid_selection = True
                 break
@@ -341,7 +366,8 @@ def select_columns(file_path):
             invalid_selection = False
             for col_index in column_indices:
                 column_name = df.columns[col_index]
-                invalid_values = df[column_name][~df[column_name].isin([0, 100])]
+                invalid_values = df[column_name][~df[column_name]\
+                                                 .isin([0, 100])]
                 if not invalid_values.empty:
                     print(f"Warning: Invalid values found in column "
                           f"'{column_name}': {invalid_values.unique()}. "

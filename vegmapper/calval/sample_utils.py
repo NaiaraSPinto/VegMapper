@@ -43,9 +43,11 @@ def analyze_strata_image(strata_path):
     
     # analyze categories
     print("Analyzing image categories...")
-    strata_reduced = strata.reduceRegion(reducer = ee.Reducer.frequencyHistogram(),
+    strata_reduced = strata.reduceRegion(reducer = ee.Reducer\
+                                         .frequencyHistogram(),
                                          maxPixels = 9999999999)
-    strata_hist = ee.Dictionary(strata_reduced).get(strata.bandNames().get(0)).getInfo()
+    strata_hist = ee.Dictionary(strata_reduced).get(strata.bandNames().get(0))\
+        .getInfo()
     strata_df = pd.DataFrame(strata_hist.items(), columns=['Cat', 'pixel_ct'])
     strata_df['Cat'] = strata_df['Cat'].astype(int)
     total_area = strata_df['pixel_ct'].sum()
@@ -98,8 +100,10 @@ def consolidate(strata_df, absenceCats, presenceCats):
   
     strata_df = strata_df.groupby('Cat')['pixel_ct'].sum().reset_index()
 
-    # Calculate the relative shares of binary classes based on the total area of interest.
-    strata_df['pct_area'] = round(strata_df['pixel_ct']* 100/strata_df['pixel_ct'].sum(), 3)
+    # Calculate the relative shares of binary classes based on the total area
+    # of interest.
+    strata_df['pct_area'] = round(strata_df['pixel_ct']*\
+                                   100/strata_df['pixel_ct'].sum(), 3)
     
     return strata_df
 
@@ -144,8 +148,9 @@ def automatic_requiredNumber(strata_df,
         pd.DataFrame: Adjusted DataFrame with binary class counts.
     """
     
-    strata_df['nh_adjusted'] = [round(requiredNumberAbsenceSamples/estimatedAbsenceTarget), 
-                                round(requiredNumberPresenceSamples/estimatedPercentPresenceTarget)]
+    strata_df['nh_adjusted'] = \
+    [round(requiredNumberAbsenceSamples/estimatedAbsenceTarget),\
+     round(requiredNumberPresenceSamples/estimatedPercentPresenceTarget)]
     
     return strata_df
 
@@ -163,16 +168,17 @@ def automatic_moe(strata_df, MOE_Algorithm="StehmanFoody", **kwargs):
                     the sample size nh for each stratum.
                     
     The Olofsson method is programmed largely based on this reference:                
-    "https://www.openmrv.org/web/guest/w/modules/mrv/modules_3/sampling-design-for-estimation-of-area-and-map-accuracy"           
+    "https://www.openmrv.org/web/guest/w/modules/mrv/modules_3/sampling-design-
+        for-estimation-of-area-and-map-accuracy"           
     
-    qh: the proportion of stratum h that really falls in the target class (related
-    to strata map accuracy).
+    qh: the proportion of stratum h that really falls in the target class 
+    (related to strata map accuracy).
     SDh: the standard deviation of stratum h, calculated from qh. 
     wh: strata weights, the number of pixels of a stratum to the total number of
     pixels in that study area.
         This is derived from the strata image.
-    SDh_x_wh: SDh * wh, which facilitates the calculateion of n (see "3.3.1 Sample
-    size" in the link above).
+    SDh_x_wh: SDh * wh, which facilitates the calculateion of n (see "3.3.1 
+    Sample size" in the link above).
     
     targerSE: the target Standard Error, calculated from user specified 
     MarginOfError, ConfidenceLevel, and 
@@ -203,7 +209,8 @@ def automatic_moe(strata_df, MOE_Algorithm="StehmanFoody", **kwargs):
     elif MOE_Algorithm == "Olofsson":  
         print("Using Olofsson")
         CategoryOfInterest = kwargs['CategoryOfInterest']
-        pct_area_cat_of_interest = strata_df.loc[strata_df['Cat'] == CategoryOfInterest,
+        pct_area_cat_of_interest = strata_df.loc[strata_df['Cat'] == \
+                                                 CategoryOfInterest,
                                                   'pct_area'].item()
         
         strata_df['qh'] = kwargs['mappingAcc']
@@ -216,7 +223,9 @@ def automatic_moe(strata_df, MOE_Algorithm="StehmanFoody", **kwargs):
 
         n = ((strata_df['SDh_x_wh'].sum())/target_SE)**2
         print('total sample size ', n)
-        strata_df['nh'] = strata_df['wh'] * n ## NOTE THAT OLOFSSON METHOD distributes based on area
+        strata_df['nh'] = strata_df['wh'] * n \
+        ## NOTE THAT OLOFSSON METHOD \
+        ## distributes based on area
         strata_df['nh'] = strata_df['nh'].astype(int)
         strata_df['nh_adjusted'] = strata_df['nh']\
             .apply(lambda x: max(x, MinimumClassSample)) 
@@ -232,8 +241,9 @@ def distribute_sample(strata_df_bincat,
                       presenceSampleWeights):
 
     """
-    Allocate the absence and presence samples into multiple categories (sub-classes),
-    guided by the user-specified absenceSampleWeights and presenceSampleWeights. 
+    Allocate the absence and presence samples into multiple categories 
+    (sub-classes),    guided by the user-specified absenceSampleWeights and
+    presenceSampleWeights. 
     For example, if presenceSampleWeights = [0.3, 0.7] and the presence sample 
     size is 100, then the presence samples will be split as [30, 70]. 
     
@@ -243,22 +253,26 @@ def distribute_sample(strata_df_bincat,
     if len(absenceCats) != len(absenceSampleWeights) or \
         len(presenceCats) != len(presenceSampleWeights):
         
-        raise ValueError("Cat list must have the same length as its corresponding\
-                          wweight list")
+        raise ValueError("Cat list must have the same length as its \
+                         corresponding wweight list")
                 
     if sum(absenceSampleWeights) != 1 or sum(presenceSampleWeights) != 1:
         print("Caution: absence or presence weight list does not sum to 1")
           
     else:
         
-        totalSampleSizeAbsence=strata_df_bincat.loc[strata_df_bincat['Cat'] == 0,
-                                                     'nh_adjusted'].values[0],
-        totalSampleSizePresence=strata_df_bincat.loc[strata_df_bincat['Cat'] == 1,
-                                                      'nh_adjusted'].values[0],
+        totalSampleSizeAbsence=strata_df_bincat\
+            .loc[strata_df_bincat['Cat'] == 0,\
+                 'nh_adjusted'].values[0],
+        totalSampleSizePresence=strata_df_bincat\
+            .loc[strata_df_bincat['Cat'] == 1,\
+                 'nh_adjusted'].values[0],
         
         print("distributing sample size for sub-classes...")
-        sampleSizeAbsence = totalSampleSizeAbsence * np.array(absenceSampleWeights)
-        sampleSizePresence = totalSampleSizePresence * np.array(presenceSampleWeights)
+        sampleSizeAbsence = totalSampleSizeAbsence *\
+              np.array(absenceSampleWeights)
+        sampleSizePresence = totalSampleSizePresence *\
+              np.array(presenceSampleWeights)
         
         sampleSizeAbsence = sampleSizeAbsence.astype(int).tolist()
         sampleSizePresence = sampleSizePresence.astype(int).tolist()
@@ -268,9 +282,11 @@ def distribute_sample(strata_df_bincat,
         
         # distribute
         for cat, value in cats_values:
-            strata_df_mltcat.loc[strata_df_mltcat['Cat'] == cat, 'nh_final'] = value
+            strata_df_mltcat.loc[strata_df_mltcat['Cat'] == cat,\
+                                  'nh_final'] = value
             
-        strata_df_mltcat = strata_df_mltcat.dropna(subset=['nh_final']).reset_index(drop=True)
+        strata_df_mltcat = strata_df_mltcat.dropna(subset=['nh_final'])\
+            .reset_index(drop=True)
         strata_df_mltcat['nh_final'] = strata_df_mltcat['nh_final'].astype(int)
         
     return strata_df_mltcat
@@ -313,16 +329,15 @@ def unwant_cat_samples_zero(mltcat_old):
     Remove unwanted categories and set their sample counts to zero.
 
     Args:
-        mltcat_old (pd.DataFrame): DataFrame with multi-class counts.
+    mltcat_old (pd.DataFrame): DataFrame with multi-class counts.
 
     Returns:
-        pd.DataFrame: DataFrame with unwanted categories sample counts set to zero.
+    pd.DataFrame: DataFrame with unwanted categories sample counts set to zero.
     """
 
     min_val = mltcat_old['Cat'].min()
     max_val = mltcat_old['Cat'].max()
 
-    # Create a new DataFrame with the full sequence of numbers from min_val to max_val
     new_df = pd.DataFrame({'Cat': range(min_val, max_val + 1)})
 
     mltcat_new = pd.merge(new_df, mltcat_old, on='Cat', how='left')
