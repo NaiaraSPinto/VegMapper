@@ -100,7 +100,7 @@ def get_mode_and_occurence(row):
     return mode, occurrence
 
 def check_exclusive(fs, rename_dict):
-
+    
     """
     Check and modify CSV files based on the sum of values in specified columns.
 
@@ -109,9 +109,9 @@ def check_exclusive(fs, rename_dict):
     equal to 100 for any row, it identifies and optionally removes the
     problematic rows from the CSV files based on user input.
 
-    -args:
-    fs: A list of file paths to the CSV files to be processed.
-    rename_dict: A dictionary containing column names.
+    - args:
+    fs (list): A list of file paths to the CSV files to be processed.
+    rename_dict (dict): A dictionary containing column names.
     """
     
     failed_rows = []
@@ -124,18 +124,15 @@ def check_exclusive(fs, rename_dict):
         for index, row in df.iterrows():
             row_sum = row[col_names].sum()
             if row_sum != 100:
-                failed_rows.append((file_path, index))
-
+                failed_rows.append(file_path)
     if failed_rows:
-        print("The following rows do not sum to 100:")
-        for file_name, row_index in failed_rows:
-            print(f"File: {file_name}, Row Index: {row_index}")
-
+        print(f"{len(failed_rows)} problematic rows found in {file_name}:")
+        
         choice = input("Do you want to remove these rows? (y/n): ")
 
         if choice.lower() == "y":
-            for file_name, row_index in failed_rows:
-                df = df[df.index != row_index]
+            for file_name in failed_rows:
+                df = df[df["file_name"] != file_name]
 
             df.to_csv(file_path, index=False)
 
