@@ -123,7 +123,8 @@ def check_exclusive(fs, rename_dict):
             problematic_mask = df.index.isin([row_index for (_, row_index) in problematic_rows])
 
             for col in col_names:
-                df.loc[problematic_mask, col] = 'NA'
+                df.loc[problematic_mask, col] = np.nan
+    return df
 
 
 def recode(df, recode_dict, label_name, new_col_names):
