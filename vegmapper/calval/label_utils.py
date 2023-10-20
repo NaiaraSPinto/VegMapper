@@ -126,7 +126,7 @@ def check_exclusive(fs, rename_dict):
             if row_sum != 100:
                 failed_rows.append(file_path)
     if failed_rows:
-        print(f"{len(failed_rows)} problematic rows found in {file_name}:")
+        print(f"{len(failed_rows)} problematic rows found in {file_path}:")
         
         choice = input("Do you want to remove these rows? (y/n): ")
 
