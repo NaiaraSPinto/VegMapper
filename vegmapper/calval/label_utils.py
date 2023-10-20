@@ -99,37 +99,45 @@ def get_mode_and_occurence(row):
       
     return mode, occurrence
 
-def check_exclusive(df, csv_path, new_col_names):
-    
-    """
-    This function valids the label entry in the samples. For a single labeler,
-    for a data point, only one of the label columns (e.g. presence, absence,
-    and unsure) can be labeled as true. Then, if one is labeled as 100 (true),
-    the other columns have to be 0. This function will print a Warning if the
-    classes are not mutually exclude in any entry. This function uses 'True' as
-    hard-coded 100, and 'False' as hard-coded  0.
-    -args: 
-    df: a pandas dataframe
-    csv_path: path to the CSVs
-    new_col_names: a list of desired column names
+def check_exclusive(fs, rename_dict):
 
-    No return 
+    """
+    Check and modify CSV files based on the sum of values in specified columns.
+
+    This function iterates through a list of CSV files and checks the sum of 
+    values in specified columns. If the sum of values in the columns is not 
+    equal to 100 for any row, it identifies and optionally removes the
+    problematic rows from the CSV files based on user input.
+
+    -args:
+    fs: A list of file paths to the CSV files to be processed.
+    rename_dict: A dictionary containing column names.
     """
     
-    df = df.copy()
-        
-    # sum of each row should equals 100
-    check_sum = df[new_col_names].sum(axis=1, skipna=False)
-    if check_sum.isin([100]).all():
-        print("The labeled classes are mutually exclusive.")
-    else:
-        warnings.warn('Found at least one entry(s) that does not have mutually'\
-                       'exclusive labels.\n\
-        >>>file: {}<<<\n\
-        Check your columns values.\n\
-        (1)Make sure no empty entry in those columns.\n\
-        (2)Make sure there is one and only one column is labeled as 100.'
-        .format(csv_path))
+    failed_rows = []
+    col_names = list(rename_dict.keys())
+    col_names = col_names[4:]
+
+    for file_path in fs:
+        df = pd.read_csv(file_path)
+
+        for index, row in df.iterrows():
+            row_sum = row[col_names].sum()
+            if row_sum != 100:
+                failed_rows.append((file_path, index))
+
+    if failed_rows:
+        print("The following rows do not sum to 100:")
+        for file_name, row_index in failed_rows:
+            print(f"File: {file_name}, Row Index: {row_index}")
+
+        choice = input("Do you want to remove these rows? (y/n): ")
+
+        if choice.lower() == "y":
+            for file_name, row_index in failed_rows:
+                df = df[df.index != row_index]
+
+            df.to_csv(file_path, index=False)
 
 def recode(df, recode_dict, label_name, new_col_names):
     
