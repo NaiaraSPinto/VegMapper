@@ -123,7 +123,13 @@ def search_granules(sitename,
     # Some tweaks for saving gdf_granules in a GeoJSON file
     gdf_granules['browse'] = gdf_granules['browse'].apply(lambda x: ' '.join(x))
     gdf_granules['pathNumber'] = gdf_granules['pathNumber'].astype(int)
-    gdf_granules['frameNumber'] = gdf_granules['frameNumber'].astype(int)
+
+    if 'dataset' in search_opts and search_opts['dataset'] == 'OPERA-S1': # check here if the data search is for opera-rtc
+        gdf_granules['frameNumber'] = gdf_granules['groupID'].astype(str)   
+    else:
+        # Some tweaks for saving gdf_granules in a GeoJSON file
+        gdf_granules['frameNumber'] = gdf_granules['frameNumber'].astype(int)
+        
     gdf_granules = gdf_granules.sort_values(by=['pathNumber', 'frameNumber', 'startTime'])
 
     # Group granules by frames
@@ -132,17 +138,19 @@ def search_granules(sitename,
     # Skim the unnecessary frames
     if skim:
         gdf_granules, gdf_frames = skim_granules(aoifile, gdf_granules, gdf_frames)
-
-    # Save search results to geojsons
-    out_dir = PathURL(aoifile).parent
-    geojson_granules = f"{out_dir}/{sitename}_s1_granules_{dt_start.strftime('%Y%m%d')}-{dt_end.strftime('%Y%m%d')}.geojson"
-    geojson_frames = geojson_granules.replace('s1_granules', 's1_frames')
-    with warnings.catch_warnings():
-        # Ignore the FutureWarning, which will be fixed in the next release of geopandas
-        warnings.simplefilter('ignore')
-        gdf_granules.to_file(geojson_granules, driver='GeoJSON')
-        gdf_frames.to_file(geojson_frames, driver='GeoJSON')
-    print(f'\nMetadata of S1 granules saved to: {geojson_granules}')
-    print(f'Metadata of S1 frames saved to: {geojson_frames}')
-
+            
+    if 'dataset' not in search_opts: # save query if dataset was not defined.
+        # Save search results to geojsons
+        out_dir = PathURL(aoifile).parent
+        geojson_granules = f"{out_dir}/{sitename}_s1_granules_{dt_start.strftime('%Y%m%d')}-{dt_end.strftime('%Y%m%d')}.geojson"
+        geojson_frames = geojson_granules.replace('s1_granules', 's1_frames')
+        gdf_granules.drop(columns=['s3Urls'], inplace=True)
+        with warnings.catch_warnings():
+            # Ignore the FutureWarning, which will be fixed in the next release of geopandas
+            warnings.simplefilter('ignore')
+            gdf_granules.to_file(geojson_granules, driver='GeoJSON')
+            gdf_frames.to_file(geojson_frames, driver='GeoJSON')
+        print(f'\nMetadata of S1 granules saved to: {geojson_granules}')
+        print(f'Metadata of S1 frames saved to: {geojson_frames}')
+    
     return gdf_granules, gdf_frames
