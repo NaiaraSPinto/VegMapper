@@ -10,10 +10,12 @@ dependencies:
   - gsutil
   - h5py
   - hyp3_sdk
+  - ipython
   - ipywidgets
   - jupyterlab
   - kernda
   - numpy
+  - nodejs
   - opencv
   - pandas
   - python=3.9
@@ -21,3 +23,4 @@ dependencies:
   - requests
   - s3fs
   - wget
+  - xarray
