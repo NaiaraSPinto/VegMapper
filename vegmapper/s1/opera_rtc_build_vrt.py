@@ -31,7 +31,7 @@ def map_burst2tile(reference_tiles, burst_summary_gdf):
     burst_gdf = burst_gdf.to_crs(epsg=tile_epsg_number)
     
     # Perform spatial join to find overlapping geometries
-    overlapping_gdf = gpd.sjoin(burst_gdf, tile_gdf, how="inner", op="intersects")
+    overlapping_gdf = gpd.sjoin(burst_gdf, tile_gdf, how="inner", predicate="intersects")
     
     # Group by the index of geojson_gdf to collect overlapping 'names'
     overlap_dict = overlapping_gdf.groupby('index_right')['burst_id'].apply(list).to_dict()
