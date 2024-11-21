@@ -8,7 +8,14 @@ import pandas as pd
 import geopandas as gpd
 import rasterio
 import xarray as xr
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import backoff
+from requests.exceptions import ConnectionError, HTTPError
+from rasterio.errors import RasterioIOError
 import s3fs
+import gc
+from tqdm import tqdm
+
 
 # get all related burst
 def get_burstid_list(burst_name, granule_gdf):
@@ -63,6 +70,23 @@ def get_burst_ts_df(opera_rtc_ids):
 
 
 # load array using a burst timeseries dataframe
+@backoff.on_exception(
+    backoff.expo,
+    (ConnectionError, HTTPError, RasterioIOError),
+    max_tries=10,
+    max_time=60,
+    jitter=backoff.full_jitter,
+)
+
+
+def load_single_image(s3_path, fs, time):
+    """Helper function to load a single image with retries."""
+    with fs.open(s3_path, mode='rb') as f:
+        da = xr.open_dataarray(f, engine="rasterio")  # Adjust chunking if needed
+        da = da.expand_dims(time=pd.Index([time], name='time'))
+    return da
+
+
 def load_burst_ts(burst_ts_df, creds, event):
     """
     Inputs
@@ -71,37 +95,60 @@ def load_burst_ts(burst_ts_df, creds, event):
     creds = S3 access key dictionary 
     """
     fs = s3fs.S3FileSystem(key=creds['accessKeyId'], secret=creds['secretAccessKey'], token=creds['sessionToken'])
-
     polarizations = ['VV', 'VH']
     da_stack = []
-    
-    for t, row in burst_ts_df.iterrows():
-        opera_id = row['OPERA L2-RTC-S1 ID']
-        time = pd.to_datetime(row['AcquisitionDateTime'])
-        polarization_stack = []
-    
-        for polarization in polarizations:
-            filename = f"{opera_id}_{polarization}.tif"
-            object_key = f"OPERA_L2_RTC-S1/{opera_id}/{filename}"
-            s3_path = f"s3://{event['Bucket']}/{object_key}"
-    
-            with fs.open(s3_path, mode='rb') as f:
-                da = xr.open_dataarray(f, engine="rasterio")
-                da = da.expand_dims(time=pd.Index([time], name='time'))
-                polarization_stack.append(da)
-    
-        da_polarized = xr.concat(polarization_stack, dim=pd.Index(polarizations, name='polarization'))
-        da_stack.append(da_polarized)
-    
+
+    # ThreadPoolExecutor for parallel loading
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_data = {}
+
+        for t, row in burst_ts_df.iterrows():
+            opera_id = row['OPERA L2-RTC-S1 ID']
+            time = pd.to_datetime(row['AcquisitionDateTime'])
+
+            # Submit tasks for both polarizations for each row
+            for polarization in polarizations:
+                filename = f"{opera_id}_{polarization}.tif"
+                object_key = f"OPERA_L2_RTC-S1/{opera_id}/{filename}"
+                s3_path = f"s3://{event['Bucket']}/{object_key}"
+
+                # Submit the image load task to the executor
+                future = executor.submit(load_single_image, s3_path, fs, time)
+                future_to_data[future] = (t, polarization)
+
+        # Collect and organize the results
+        results_by_time = {}
+
+        for future in as_completed(future_to_data):
+            try:
+                t, polarization = future_to_data[future]
+                da = future.result()
+
+                # Organize results by time index
+                if t not in results_by_time:
+                    results_by_time[t] = []
+                results_by_time[t].append((polarization, da))
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        # Assemble the final dataset
+        for t, polarized_results in sorted(results_by_time.items()):
+            # Ensure results are ordered correctly by polarization
+            polarized_results.sort(key=lambda x: polarizations.index(x[0]))
+            da_polarized = xr.concat(
+                [result[1] for result in polarized_results], 
+                dim=pd.Index(polarizations, name='polarization')
+            )
+            da_stack.append(da_polarized)
+
     ds = xr.concat(da_stack, dim='time')
-    
-    return ds 
+    return ds
 
 
 # estimate temporal mean
 def xarray_tmean(ds, pol):
     ts = ds.sel(polarization=pol)
-    temporal_avg = ts.mean(dim='time')
+    temporal_avg = ts.mean(dim='time').persist()
     epsg_code = 'EPSG:' + str(ds.attrs['BOUNDING_BOX_EPSG_CODE'])
     
     return temporal_avg, epsg_code
@@ -123,22 +170,22 @@ def tmean2tiff(temporal_avg, file_output, epsg_code):
 
 
 # main driver
-def run_rtc_temp_mean(burst_id_list, granule_gdf, creds, event):
+def run_rtc_temp_mean(burst_id_list, granule_gdf, creds, event, out_dir):
     t_all = time.time() # track processing time
     
-    out_dir = "./rtc_tmeans"
     # Check if the directory exists
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
         print(f"Directory {out_dir} created.")
     
-    for burst in burst_id_list:
+    # for burst in burst_id_list:
+    for burst in tqdm(burst_id_list, desc="Processing bursts", unit="burst"):
         polarization = ['VV', 'VH']
         # check if the image already exists, skip it it does
         check_vv = f"{out_dir}/{burst}_tmean_{polarization[0]}.tif"
         check_vh = f"{out_dir}/{burst}_tmean_{polarization[1]}.tif"
         if os.path.exists(check_vv) and os.path.exists(check_vh):
-            print(f"Temporal VV & VH means for burst {burst} exist, skipping to the next")
+            # print(f"Temporal VV & VH means for burst {burst} exist, skipping to the next")
             continue
             
         burst_ids = get_burstid_list(burst, granule_gdf)
@@ -146,16 +193,22 @@ def run_rtc_temp_mean(burst_id_list, granule_gdf, creds, event):
             print(f"Only one burst available for ID {burst}, skippin temporal average")
             continue
             
-        # create df
-        burst_ts_df = get_burst_ts_df(burst_ids)
-        # load xarray
-        burst_ds = load_burst_ts(burst_ts_df, creds, event)
-        for pol in polarization:
-            # calculate temp mean
-            burst_tmean, epsg_code = xarray_tmean(burst_ds, pol)
-            # export tiff
-            out_tif = f"{out_dir}/{burst}_tmean_{pol}.tif"
-            tmean2tiff(burst_tmean, out_tif, epsg_code)
+        # Load xarray and ensure cleanup
+        try:
+            burst_ts_df = get_burst_ts_df(burst_ids)
+            burst_ds = load_burst_ts(burst_ts_df, creds, event)
+            
+            for pol in polarization:
+                # calculate temp mean
+                burst_tmean, epsg_code = xarray_tmean(burst_ds, pol)
+                # export tiff
+                out_tif = f"{out_dir}/{burst}_tmean_{pol}.tif"
+                tmean2tiff(burst_tmean, out_tif, epsg_code)
+        finally:
+            # Ensure dataset is closed even in case of error
+            burst_ds.close()
+            gc.collect()
+
     # Track processing time 
     t_all_elapsed = time.time() - t_all # track processing time
     hours, rem = divmod(t_all_elapsed, 3600)
