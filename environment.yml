@@ -3,6 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - asf_search
+  - backoff 
   - boto3
   - earthengine-api
   - gdal
