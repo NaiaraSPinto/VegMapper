@@ -19,17 +19,27 @@ def maskL8sr(image):
     cloudShadowBitMask = (1 << 3)
     cloudsBitMask = (1 << 5)
     # Get the pixel QA band.
-    qa = image.select('pixel_qa')
+    qa = image.select('QA_PIXEL')
     # Both flags should be set to zero, indicating clear conditions.
     mask = qa.bitwiseAnd(cloudShadowBitMask).eq(0).And(qa.bitwiseAnd(cloudsBitMask).eq(0))
     return image.updateMask(mask)
 
-
+# Function to apply scale factors
+def rescaleBands(image):
+    optical_bands = image.select('SR_B.').multiply(0.0000275).add(-0.2)
+    thermal_bands = image.select('ST_B.*').multiply(0.00341802).add(149.0)
+    return image.addBands(optical_bands, None, True).addBands(thermal_bands, None, True)
+    
 # Function to add NDVI band
 def addNDVI(image):
-    ndvi = image.normalizedDifference(['B5', 'B4']).rename('NDVI')
+    ndvi = image.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI')
     return image.addBands(ndvi)
 
+# Function to get maximum NDVI value using NDVI as a quality mask
+def getMaxNDVI(imageCollection):
+    ndvi = imageCollection.select('NDVI')
+    maxNDVI = ndvi.qualityMosaic('NDVI')
+    return maxNDVI
 
 def export_landsat_ndvi(proj_dir, sitename, tiles, res, year, gs=None):
     print(f'\nSubmitting GEE jobs for exporting Landsat NDVI ...')
@@ -63,10 +73,17 @@ def export_landsat_ndvi(proj_dir, sitename, tiles, res, year, gs=None):
         if m == 1:
             # Get cloud-masked SR median
             tile = ee.Geometry.Rectangle(gdf_wgs84['geometry'][i].bounds)
-            sr = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterDate(f'{year}-01-01', f'{year}-12-31').map(maskL8sr).filterBounds(tile).median()
-
+            sr = (ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+                       .merge(ee.ImageCollection('LANDSAT/LC09/C02/T1_L2'))
+                       .filterDate(f'{year}-01-01', f'{year}-12-31')
+                       .filterBounds(tile)
+                       .map(maskL8sr)
+                       .map(rescaleBands)
+                       .map(addNDVI))
+            maxNDVI = getMaxNDVI(sr)
+            
             # Set crs and crsTransform to the native ones and use bilinear interpolation when exported
-            ndvi = addNDVI(sr).select('NDVI').reproject(**{'crs': f'EPSG:{epsg}', 'crsTransform': ct_0}).resample('bilinear')
+            ndvi = maxNDVI.select('NDVI').reproject(**{'crs': f'EPSG:{epsg}', 'crsTransform': ct_0}).resample('bilinear')
 
             if gs is not None:
                 gs = pathurl.PathURL(gs)
