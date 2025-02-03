@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 
 import os
+import shutil
 import geopandas as gpd
 from osgeo import gdal
 import rasterio
 from rasterio.crs import CRS
+import tempfile
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+import warnings
 
 def map_burst2tile(reference_tiles, burst_summary_gdf, rtc_dir):
     """
@@ -48,10 +51,16 @@ def map_burst2tile(reference_tiles, burst_summary_gdf, rtc_dir):
         return cell
 
     gdf2export = tile_gdf.copy()
-    # Convert the list of strings in 'overlapping_names' to a single string
+    # Convert the list of strings in 'overlapping_bursts' to a single string
     gdf2export['overlapping_bursts'] = gdf2export['overlapping_bursts'].apply(join_lists)
-    # Convert geometry to WKT format for CSV export
-    gdf2export['geometry'] = gdf2export['geometry'].apply(lambda x: x.wkt)
+    # Ensure the geometry column is valid before applying .wkt
+    if isinstance(gdf2export, gpd.GeoDataFrame) and 'geometry' in gdf2export.columns:
+        gdf2export = gdf2export[gdf2export['geometry'].notnull()]  # Remove None values
+        gdf2export = gdf2export[gdf2export['geometry'].apply(lambda x: hasattr(x, "wkt"))]  # Ensure geometry objects
+        # Convert geometry to WKT format for CSV export (suppress warning)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            gdf2export['geometry'] = gdf2export['geometry'].apply(lambda x: x.wkt)
     # Export to CSV
     gdf2export.to_csv(f"{rtc_dir}/burst_to_tile_map.csv", index=False)
 
@@ -103,7 +112,7 @@ def process_row(row, polarizations, rtc_dir, out_vrt_dir, target_crs, created_fi
                             file, temp_path
                         ]
                         subprocess.run(warp_command_reproject, check=True)
-                        os.rename(temp_path, reprojected_file)
+                        shutil.move(temp_path, reprojected_file)
                     except Exception as e:
                         # Cleanup in case of error
                         if os.path.exists(temp_path):
