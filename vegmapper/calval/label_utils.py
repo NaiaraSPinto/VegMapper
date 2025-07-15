@@ -11,11 +11,47 @@ from pylab import rcParams
 
 import warnings
 import os
+pd.set_option('future.no_silent_downcasting', True)
 
+def project_file_selector():
+    """
+    Function for interactive selection of CEO project files. Constrains choice
+    to 1 or at least 3 files. 
+    """
+    try:
+        while True:
+            try:
+                num_users = int(
+                    input("Enter the number of CEO projects (must be either 1 \
+                          or at least 3): ")
+                )
+                if num_users == 2 or num_users < 1:
+                    print("The number of CEO projects must be either 1 or 3+. \
+                          Please re-run and try again")
+                    sys.exit(0)
+                else:
+                    break
+            except ValueError:
+                print("Invalid input. Please re-run and enter a valid number.")
+                sys.exit(0)
 
+        fs = []
+        for i in range(num_users):
+            while True:
+                file_path = input(f"Enter the CSV file path & name for \
+                                    project {i+1}: ")
+                if not file_path:
+                    print("File path/name cannot be empty.")
+                else:
+                    fs.append(file_path)
+                    break
+                
+        return fs
+                
+    except SystemExit:
+        pass  
 
 # read datasets into list, keep the most important columns, and do some renaming
-
 def load_csv(csv_path):
 
     """
@@ -92,15 +128,37 @@ def get_mode_occurence(row):
     row: a row that only includes labeler's labels
     return two value
     """
-    mode_values = row.mode().values
+    row = row.dropna()
+    mode_values = row.mode(dropna=True).values
     if len(mode_values) > 0:
         mode = mode_values[0]
         occurrence = row.value_counts()[mode] / len(row)
+        ct = len(row)
+
     else:
         mode = np.nan
         occurrence = 0.0
 
-    return mode, occurrence
+    return mode, occurrence, ct
+
+# def get_mode_occurence(row):
+
+#     """
+#     Get modal and the occurance of modal (a ratio) for each row.
+#     This function will be applied to each row of a pandas dataframe.
+#     -agrs:
+#     row: a row that only includes labeler's labels
+#     return two value
+#     """
+#     mode_values = row.mode(dropna=True).values
+#     if len(mode_values) > 0:
+#         mode = mode_values[0]
+#         occurrence = row.value_counts()[mode] / len(row)
+#     else:
+#         mode = np.nan
+#         occurrence = 0.0
+
+#     return mode, occurrence
 
 
 def check_exclusive(fs, rename_dict):
@@ -142,7 +200,6 @@ def check_exclusive(fs, rename_dict):
                 df.loc[problematic_mask, col] = np.nan
     return df
 
-
 def recode(df, recode_dict, label_name, new_col_names):
     
     """
@@ -161,7 +218,7 @@ def recode(df, recode_dict, label_name, new_col_names):
     
     # collapse sparse matrix into a list. For each row, the label with 100 will
     #  be selected.
-    df_densemat = df[new_col_names].idxmax(axis=1)
+    df_densemat = df[new_col_names].idxmax(axis=1, skipna=True)
     
     # create a column called "label", fill with the label list.
     df = df.assign(**{label_name:df_densemat})
@@ -170,9 +227,33 @@ def recode(df, recode_dict, label_name, new_col_names):
     
     return df
 
-def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label",\
-                      fs=[]):
+# def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label",\
+#                       fs=[]):
     
+#     """
+#     user 1's label will be like "label_1"; 
+#     user 2 is "label_2" etc...
+#     """
+#     label_name = "labeler"
+#     base = pd_list[0]
+    
+#     # user 2's suffix is 2 (by setting enumerate idx start=2) 
+#     if len(pd_list) > 1:
+#         for idx, i in enumerate(pd_list[1:], start=2):
+#             # Extract the last part of the file path without the ".csv" 
+#             # extension
+#             file_name = os.path.splitext(os.path.basename(fs[idx - 1]))[0]
+#             base = pd.merge(base, i[[*by, label_name]], how='left', on=by,\
+#                              suffixes=(None, file_name))
+
+#     # Renaming the first user column name
+#     base = rename_cols(base, {label_name:os.path\
+#                               .splitext(os.path.basename(fs[0]))[0]})
+#     # Dropping label_name from the column names
+#     base.columns = [col.replace(label_name, '') for col in base.columns]
+#     return base
+
+def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label"):
     """
     user 1's label will be like "label_1"; 
     user 2 is "label_2" etc...
@@ -185,18 +266,51 @@ def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label",\
         for idx, i in enumerate(pd_list[1:], start=2):
             # Extract the last part of the file path without the ".csv" 
             # extension
-            file_name = os.path.splitext(os.path.basename(fs[idx - 1]))[0]
+            file_name = f"ceo-survey-user{idx}"
+            # file_name = os.path.splitext(os.path.basename(fs[idx - 1]))[0]
             base = pd.merge(base, i[[*by, label_name]], how='left', on=by,\
-                             suffixes=(None, file_name))
+                            suffixes=(None, file_name))
 
     # Renaming the first user column name
-    base = rename_cols(base, {label_name:os.path\
-                              .splitext(os.path.basename(fs[0]))[0]})
+    base = rename_cols(
+        base, 
+        {label_name:"ceo-survey-user1"}
+    )
+
     # Dropping label_name from the column names
     base.columns = [col.replace(label_name, '') for col in base.columns]
     return base
 
-def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
+# def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
+
+#     """
+#     A csv processing pipeline. This function takes a single csv file
+#     and let it pass through a sequence of our pre-defined functions
+#     return: a pandas dataframe of the processed csv.
+#     """
+#     # Set columns to keep:
+#     # key_col and label_name are used for joining users's datasets,
+#     # columns in useful_col will not participate in joining
+#     # and come from the first user instead to avoid repetition.
+#     key_col = ["Point_ID", "Clust"]
+#     label_name = "labeler"
+#     useful_col = ["Lat", "Lon"]
+    
+#     print("processing: {}".format(csv_path))
+    
+#     df = load_csv(csv_path)
+#     df = check_exclusive([csv_path], rename_dict)
+#     df = rename_cols(df, rename_dict)
+
+#     # if you want to combine Young and Mature, just recode both to be 1.
+#     df = recode(df, recode_dict, label_name, new_col_names)
+
+#     df = subset_cols(df, [*key_col,  *useful_col, label_name])
+
+#     return df
+
+def process_csv(csv_path, rename_dict, recode_dict, new_col_names, 
+                key_col=["Point_ID", "Clust"]):
 
     """
     A csv processing pipeline. This function takes a single csv file
@@ -207,7 +321,6 @@ def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
     # key_col and label_name are used for joining users's datasets,
     # columns in useful_col will not participate in joining
     # and come from the first user instead to avoid repetition.
-    key_col = ["Point_ID", "Clust"]
     label_name = "labeler"
     useful_col = ["Lat", "Lon"]
     
@@ -221,54 +334,69 @@ def process_csv(csv_path, rename_dict, recode_dict, new_col_names):
     df = recode(df, recode_dict, label_name, new_col_names)
 
     df = subset_cols(df, [*key_col,  *useful_col, label_name])
-
     return df
 
-def match_CEO_projects(file_path):
-    
+def match_ceo_projects(file_paths):
     """    
-    Compare the content of multiple CSV files and identify differences in the 
-    data.
-    - file_path (list of str): A list of file paths to the CSV files to be 
+    Compare multiple CEO project CSV files for consistency of plot ids and 
+    locations, and check if they have they same column names, if more than one 
+    is given
+    - file_paths (list of str): A list of file paths to the CSV files to be 
     compared.
     """
 
     def round_float(value):
-        if isinstance(value, float):
-            return round(value, 7)
-        return value
+        return round(value, 7) if isinstance(value, float) else value
 
     data_dicts = []
     file_names = []
+    expected_column_names = None
 
-    for csv_file in file_path:
-        df = pd.read_csv(csv_file)
-        df = df[['plot_id', 'center_lon', 'center_lat']].applymap(round_float)
-        data_dict = df.to_dict('records')
-        data_dicts.append(data_dict)
-        file_names.append(os.path.basename(csv_file))
+    for i, file_path in enumerate(file_paths):
+        if not os.path.isfile(file_path):
+            print(f"File {file_path} does not exist.")
+            return
 
-    match = True
+        df = pd.read_csv(file_path)
 
-    for i in range(1, len(data_dicts)):
-        if data_dicts[0] != data_dicts[i]:
-            match = False
-            break
+        # Initialize expected column names from the first file
+        if i == 0:
+            expected_column_names = set(df.columns)
+        else:
+            # Check for column name consistency
+            if set(df.columns) != expected_column_names:
+                print(f"Column names in {file_path} are not the same.")
+                return
 
-    if match:
-        print("Samples are identical in all CSV files.")
+        # Check for the presence of 'plotid' or 'plot_id'
+        plot_column = 'plot_id' if 'plot_id' in df.columns else 'plotid'
+        if plot_column not in df.columns:
+            raise ValueError("Neither 'plotid' nor 'plot_id' column \
+                             found in the CSV file.")
+
+        # Round float values and convert to dictionary
+        df = df[[plot_column, 'center_lon', 'center_lat']].map(round_float)
+        data_dicts.append(df.to_dict('records'))
+        file_names.append(os.path.basename(file_path))
+
+    # Skip checks if there is only one file
+    if len(data_dicts) <= 1:
+        print("Only one file provided. No comparison needed.")
+        return
+
+    # Compare data across files
+    if all(data_dicts[0] == data_dict for data_dict in data_dicts[1:]):
+        print("Samples in all project files are identical.")
     else:
-        print("Samples must be the same in all CSV files.")
+        print("Samples are not but must all be the same.")
         for i in range(1, len(data_dicts)):
-            differing_rows = []
-            for j, (row1, row2) in enumerate(zip(data_dicts[0], data_dicts[i])):
-                if row1 != row2:
-                    differing_rows.append((j, row1, row2))
+            differing_rows = [(j, row1, row2) for j, (row1, row2) in 
+                              enumerate(zip(data_dicts[0], data_dicts[i])) 
+                              if row1 != row2]
             if differing_rows:
                 print(f"Differences found in file '{file_names[i]}':")
                 for row_index, row1, row2 in differing_rows:
                     print(f"Row {row_index} -> {row1} != {row2}")
-
 
 def select_columns(file_path):
   
@@ -379,9 +507,13 @@ def select_columns(file_path):
             if len(not_sure_columns) == len(column_indices):
                 break
     
+    cluster_name = "pl_strata_cat" if "pl_strata_cat" in df.columns \
+        else "pl_cluster"
+    plotid_name = "plotid" if "plotid" in df.columns else "plot_id"
+    
     rename_dict = {
-        "plot_id": "Point_ID",
-        "pl_cluster": "Clust",
+        plotid_name: "Point_ID",
+        cluster_name: "Clust",
         "center_lat": "Lat",
         "center_lon": "Lon"
     }
