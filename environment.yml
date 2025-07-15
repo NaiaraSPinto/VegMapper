@@ -73,6 +73,7 @@ dependencies:
     - pywavelets
     - rioxarray
     - scikit-image
+    - scikit-learn
     - sortedcontainers
     - sympy
     - tblib
