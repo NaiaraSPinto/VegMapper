@@ -2,26 +2,38 @@ name: vegmapper
 channels:
   - conda-forge
 dependencies:
+#all modules
+  - pandas
+  - geopandas
+  - scipy
+  - numpy
+  - gdal
+  - ipywidgets
+  - jupyterlab
+  - rasterio
+  - kernda
+  - opencv
+  - wget
+  - requests
+  - pip
+  - python=3.9
+  - s3fs
+# stacks
   - asf_search
   - boto3
-  - earthengine-api
   - gdal
-  - geopandas
   - gsutil
   - h5py
   - hyp3_sdk
-  - ipywidgets
-  - jupyterlab
-  - kernda
-  - numpy
-  - opencv
-  - pandas
-  - python=3.9
-  - rasterio
-  - requests
-  - s3fs
-  - wget
-  - pip
+#calval modules
+  - ee
+  - geemap
+  - functools
+  - pdb
+  - pylab
+  - earthengine-api
+#classification modules
+'''
   - pip:
     - appdirs
     - asciitree
@@ -85,6 +97,7 @@ dependencies:
     - xarray
     - zarr
     - zict
+    '''
 
 
 
