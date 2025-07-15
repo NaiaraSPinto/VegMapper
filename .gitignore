@@ -161,3 +161,8 @@ cython_debug/
 
 stacks/malaysia/*
 stacks/ucayali/*
+
+.Rhistory
+*.Rproj*
+.DS_store
+calval/detritus/*
