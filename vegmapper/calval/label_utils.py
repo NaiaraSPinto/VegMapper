@@ -1,16 +1,11 @@
+import os
+import sys
+# import warnings
 import pandas as pd
 import numpy as np
-import re
-import random
-import pdb
-
-
-#from google.colab import drive
+import folium
 from datetime import datetime as dt
-from pylab import rcParams
-
-import warnings
-import os
+# from pylab import rcParams
 pd.set_option('future.no_silent_downcasting', True)
 
 def project_file_selector():
@@ -22,12 +17,12 @@ def project_file_selector():
         while True:
             try:
                 num_users = int(
-                    input("Enter the number of CEO projects (must be either 1 \
-                          or at least 3): ")
+                    input(f"Enter the number of CEO projects (must be either 1"\
+                          f" or at least 3): ")
                 )
                 if num_users == 2 or num_users < 1:
-                    print("The number of CEO projects must be either 1 or 3+. \
-                          Please re-run and try again")
+                    print(f"The number of CEO projects must be either 1 or 3+."\
+                          f"Please re-run and try again")
                     sys.exit(0)
                 else:
                     break
@@ -38,8 +33,8 @@ def project_file_selector():
         fs = []
         for i in range(num_users):
             while True:
-                file_path = input(f"Enter the CSV file path & name for \
-                                    project {i+1}: ")
+                file_path = input(f"Enter the CSV file path & name for"\
+                                  f"project {i+1}: ")
                 if not file_path:
                     print("File path/name cannot be empty.")
                 else:
@@ -94,8 +89,8 @@ def rename_cols(df, update_dict):
     df = df.copy()
     
     if not set(update_dict.keys()).issubset(df.columns): 
-        raise ValueError("One or multiple old name(s) do not exist in the\
-                          dataframe.")
+        raise ValueError(f"One or multiple old name(s) do not exist in the"\
+                         f"dataframe.")
     
     df.rename(columns=update_dict, inplace=True)
     
@@ -455,3 +450,86 @@ def select_columns(file_path):
     print(new_col_names)
     
     return new_col_names, rename_dict
+
+def map_merged_results(out):
+    # For the usage category
+    color_mapping = {
+        'train': 'blue',
+        'validate': 'green',
+        'map_reference/test': 'red',
+        'unusable': 'gray'
+    }
+
+    m = folium.Map(location=[out['Lat'].mean(), out['Lon'].mean()], 
+                   zoom_start=7)
+    scatter_group_usage = folium.FeatureGroup(name='Usage')
+
+    scatter_group_class = folium.FeatureGroup(name='Class')
+
+    # Create legend for 'usage'
+    legend_html_usage = '''
+    <div style="position: fixed; bottom: 50px; left: 50px; 
+        background-color: white;
+        border: 2px solid grey; z-index: 9999; padding: 10px;">
+        <h4>Usage</h4>
+        <i style="background: blue; border-radius: 50%; width: 18px;
+            height: 18px;
+        display: inline-block;"></i> Train<br>
+        <i style="background: green; border-radius: 50%; width: 18px; 
+            height: 18px;
+        display: inline-block;"></i> Validate<br>
+        <i style="background: red; border-radius: 50%; width: 18px; 
+            height: 18px;
+        display: inline-block;"></i> Map Reference/Test<br>
+        <i style="background: gray; border-radius: 50%; width: 18px; 
+            height: 18px;
+        display: inline-block;"></i> Unusable<br>
+    </div>
+    '''
+    legend_usage = folium.Element(legend_html_usage)
+    m.get_root().html.add_child(legend_usage)
+
+    # Create legend for 'class'
+    legend_html_class = '''
+    <div style="position: fixed; bottom: 50px; left: 230px; 
+        background-color: white; border: 2px solid grey; z-index: 9999; 
+        padding: 10px;">
+        <h4>Class</h4>
+        <i style="background: purple; border-radius: 50%; width: 18px; 
+        height: 18px; display: inline-block;"></i> Absence<br>
+        <i style="background: yellow; border-radius: 50%; width: 18px; 
+        height: 18px; display: inline-block;"></i> Presence<br>
+        <i style="background: black; border-radius: 50%; width: 18px; 
+        height: 18px; display: inline-block;"></i> Not Sure<br>
+    </div>
+    '''
+    legend_class = folium.Element(legend_html_class)
+    m.get_root().html.add_child(legend_class)
+
+    for usage, color in color_mapping.items():
+        subset = out[out['usage'] == usage]
+        for _, row in subset.iterrows():
+            folium.CircleMarker(location=[row['Lat'], row['Lon']], radius=1, \
+                                color=color, fill=True, fill_color=color,\
+                                fill_opacity=1).add_to(scatter_group_usage)
+
+    for class_name in range(3):  # 0, 1, 2
+        subset = out[out['class'] == class_name]
+        color = ['purple', 'yellow', 'black'][class_name]
+        for _, row in subset.iterrows():
+            folium.CircleMarker(location=[row['Lat'], row['Lon']], radius=1,\
+                                color=color, fill=True, fill_color=color,\
+                                fill_opacity=1).add_to(scatter_group_class)
+
+    # Add the feature groups to the map
+    scatter_group_usage.add_to(m)
+    scatter_group_class.add_to(m)
+
+    # Add OpenStreetMap layer to the map
+    folium.TileLayer('openstreetmap').add_to(m)
+
+    # Add a layer control to toggle between 'usage' and 'class' scatter plots and
+    #OpenStreetMap layer
+    folium.LayerControl(collapsed=False).add_to(m)
+
+    return m
