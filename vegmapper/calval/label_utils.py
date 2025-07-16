@@ -165,8 +165,8 @@ def check_exclusive(fs, rename_dict):
 
         if problematic_rows:
             file_name = os.path.basename(file_path)
-            print(f"{len(problematic_rows)} problematic rows found in\
-                   {file_name}:")
+            print(f"{len(problematic_rows)} problematic rows found in "\
+                  f"{file_name}:")
 
             problematic_mask = df.index.isin([row_index for (_, row_index) in\
                                                problematic_rows])
@@ -292,8 +292,8 @@ def match_ceo_projects(file_paths):
         # Check for the presence of 'plotid' or 'plot_id'
         plot_column = 'plot_id' if 'plot_id' in df.columns else 'plotid'
         if plot_column not in df.columns:
-            raise ValueError("Neither 'plotid' nor 'plot_id' column \
-                             found in the CSV file.")
+            raise ValueError(f"Neither 'plotid' nor 'plot_id' column" \
+                             f"found in the CSV file.")
 
         # Round float values and convert to dictionary
         df = df[[plot_column, 'center_lon', 'center_lat']].map(round_float)
@@ -356,8 +356,8 @@ def select_columns(file_path):
 
     while True:
         column_indices_input = input(
-            f"Enter column indices to change to '{new_col_names[0]}' \n"
-            "(separate with commas): "
+            f"Enter column indices to change to '{new_col_names[0]}' \n"\
+            f"(separate with commas): "
         )
         column_indices = [
             int(index.strip())
@@ -368,8 +368,8 @@ def select_columns(file_path):
             column_name = df.columns[col_index]
             invalid_values = df[column_name][~df[column_name].isin([0, 100])]
             if not invalid_values.empty:
-                print(f"Warning: Invalid values found in column '{column_name}'\
-                      :\n"
+                print(f"Warning: Invalid values found in column "\
+                      f"'{column_name}':\n" \
                       f"{invalid_values.unique()}. Valid values are [0, 100].")
                 invalid_selection = True
                 break
@@ -380,8 +380,8 @@ def select_columns(file_path):
 
     while True:
         column_indices_input = input(
-            f"Enter column indices to change to '{new_col_names[1]}' \n"
-            "(separate with commas): "
+            f"Enter column indices to change to '{new_col_names[1]}' \n"\
+            f"(separate with commas): "
         )
         column_indices = [
             int(index.strip())
@@ -392,8 +392,8 @@ def select_columns(file_path):
             column_name = df.columns[col_index]
             invalid_values = df[column_name][~df[column_name].isin([0, 100])]
             if not invalid_values.empty:
-                print(f"Warning: Invalid values found in column '{column_name}'\
-                      :\n"
+                print(f"Warning: Invalid values found in column" \
+                      f"'{column_name}': \n"\
                       f"{invalid_values.unique()}. Valid values are [0, 100].")
                 invalid_selection = True
                 break
@@ -405,8 +405,8 @@ def select_columns(file_path):
     if len(new_col_names) == 3:
         while True:
             column_indices_input = input(
-                f"Enter column indices to change to '{new_col_names[2]}' "
-                "(separate with commas): "
+                f"Enter column indices to change to '{new_col_names[2]}' "\
+                f"(separate with commas): "
             )
             column_indices = [
                 int(index.strip())
@@ -420,7 +420,7 @@ def select_columns(file_path):
                 if not invalid_values.empty:
                     print(f"Warning: Invalid values found in column "
                           f"'{column_name}': {invalid_values.unique()}. "
-                          "Valid values are [0, 100].")
+                          f"Valid values are [0, 100].")
                     invalid_selection = True
                     break
             if not invalid_selection:
@@ -528,8 +528,8 @@ def map_merged_results(out):
     # Add OpenStreetMap layer to the map
     folium.TileLayer('openstreetmap').add_to(m)
 
-    # Add a layer control to toggle between 'usage' and 'class' scatter plots and
-    #OpenStreetMap layer
+    # Add a layer control to toggle between 'usage' and 'class' scatter plots 
+    # and OpenStreetMap layer
     folium.LayerControl(collapsed=False).add_to(m)
 
     return m
