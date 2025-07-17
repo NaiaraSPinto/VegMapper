@@ -8,6 +8,8 @@ dependencies:
   - scipy
   - numpy
   - gdal
+  - ipython
+  - nodejs
   - ipywidgets
   - jupyterlab
   - rasterio
@@ -20,11 +22,14 @@ dependencies:
   - s3fs
 # stacks
   - asf_search
+  - backoff
   - boto3
   - gdal
   - gsutil
   - h5py
   - hyp3_sdk
+  - xarray
+  - rioxarray
 #calval modules
   - ee
   - geemap
