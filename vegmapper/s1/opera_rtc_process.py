@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import rasterio
+from rasterio.shutil import copy as rio_copy
+from rasterio.errors import RasterioIOError
 import xarray as xr
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import backoff
@@ -170,7 +172,7 @@ def tmean2tiff(temporal_avg, file_output, epsg_code):
 
 
 # main driver
-def run_rtc_temp_mean(burst_id_list, granule_gdf, creds, event, out_dir):
+def run_rtc_temp_mean(burst_id_list, granule_gdf, creds, event, out_dir, start_date, end_date):
     t_all = time.time() # track processing time
     
     # Check if the directory exists
@@ -182,8 +184,8 @@ def run_rtc_temp_mean(burst_id_list, granule_gdf, creds, event, out_dir):
     for burst in tqdm(burst_id_list, desc="Processing bursts", unit="burst"):
         polarization = ['VV', 'VH']
         # check if the image already exists, skip it it does
-        check_vv = f"{out_dir}/{burst}_tmean_{polarization[0]}.tif"
-        check_vh = f"{out_dir}/{burst}_tmean_{polarization[1]}.tif"
+        check_vv = f"{out_dir}/{burst}_tmean_{start_date}_{end_date}_{polarization[0]}.tif"
+        check_vh = f"{out_dir}/{burst}_tmean_{start_date}_{end_date}_{polarization[1]}.tif"
         if os.path.exists(check_vv) and os.path.exists(check_vh):
             # print(f"Temporal VV & VH means for burst {burst} exist, skipping to the next")
             continue
@@ -215,3 +217,91 @@ def run_rtc_temp_mean(burst_id_list, granule_gdf, creds, event, out_dir):
     minutes, seconds = divmod(rem, 60)
     print("Tiffs generated in  {:0>2}:{:0>2}:{:05.2f} hours:min:secs".format(int(hours),int(minutes),seconds)) # track processing time
 
+
+# Compute RVI for availabel tiles
+def compute_rvi_from_files(vv_path, vh_path):
+    """
+    Compute Radar Vegetation Index (RVI) from VV and VH radar backscatter in linear scale.
+
+    Parameters:
+        vv_path (str): File path to VV raster (in linear scale).
+        vh_path (str): File path to VH raster (in linear scale).
+
+    Returns:
+        np.ndarray: RVI values as a NumPy array.
+    """
+    with rasterio.open(vv_path) as vv_src, rasterio.open(vh_path) as vh_src:
+        vv = vv_src.read(1).astype(np.float32)
+        vh = vh_src.read(1).astype(np.float32)
+
+        # Make sure shapes match
+        if vv.shape != vh.shape:
+            raise ValueError("VV and VH rasters must have the same shape")
+
+        denominator = vv + vh
+        with np.errstate(divide='ignore', invalid='ignore'):
+            rvi = (4 * vh) / denominator
+            rvi[denominator == 0] = np.nan  # handle divide-by-zero
+        
+        meta = vv_src.meta.copy()
+        meta.update({
+            'dtype': 'float32',
+            'count': 1,
+            'nodata': np.nan
+        })
+    
+    return rvi, meta
+
+
+def compute_rvi_tiles(tile_dir, sitename, s_date, e_date):
+    vv_pattern = re.compile(
+        fr"s1_tile_{sitename}_{s_date}_{e_date}_h(\d+)_v(\d+)_VV\.tif$")
+    vh_pattern = re.compile(
+        fr"s1_tile_{sitename}_{s_date}_{e_date}_h(\d+)_v(\d+)_VH\.tif$")
+
+    all_files = os.listdir(tile_dir)
+
+    # Build a dict of VV and VH tiles keyed by (h, v)
+    vv_tiles = {}
+    vh_tiles = {}
+
+    for f in all_files:
+        vv_match = vv_pattern.match(f)
+        vh_match = vh_pattern.match(f)
+
+        if vv_match:
+            h, v = vv_match.groups()
+            vv_tiles[(h, v)] = os.path.join(tile_dir, f)
+        elif vh_match:
+            h, v = vh_match.groups()
+            vh_tiles[(h, v)] = os.path.join(tile_dir, f)
+
+    # Find matching (h, v) keys
+    matching_keys = set(vv_tiles.keys()) & set(vh_tiles.keys())
+
+    for h, v in matching_keys:
+        output_name = f"s1_tile_{sitename}_{s_date}_{e_date}_h{h}_v{v}_RVI.tif"
+        output_path = os.path.join(tile_dir, output_name)
+
+        # Skip if RVI file already exists
+        if os.path.exists(output_path):
+            print(f"Skipping RVI for h{h} v{v} (already exists).")
+            continue
+
+        vv_path = vv_tiles[(h, v)]
+        vh_path = vh_tiles[(h, v)]
+
+        try:
+            rvi_array, meta = compute_rvi_from_files(vv_path, vh_path)
+        except RasterioIOError as e:
+            print(f"Failed to read input files for h{h} v{v}: {e}")
+            continue
+
+        # Write temporary GeoTIFF
+        with rasterio.open("/vsimem/temp_rvi.tif", 'w', **meta) as dst:
+            dst.write(rvi_array, 1)
+
+        # Export as Cloud Optimized GeoTIFF
+        rio_copy("/vsimem/temp_rvi.tif", output_path, driver='COG', copy_src_overviews=True)
+
+        print(f"Saved RVI to {output_path}")
