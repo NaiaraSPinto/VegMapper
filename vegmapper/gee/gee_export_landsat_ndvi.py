@@ -63,7 +63,7 @@ def export_landsat_ndvi(proj_dir, sitename, tiles, res, year, gs=None):
         if m == 1:
             # Get cloud-masked SR median
             tile = ee.Geometry.Rectangle(gdf_wgs84['geometry'][i].bounds)
-            sr = ee.ImageCollection('LANDSAT/LC08/C01/T1_SR').filterDate(f'{year}-01-01', f'{year}-12-31').map(maskL8sr).filterBounds(tile).median()
+            sr = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2').filterDate(f'{year}-01-01', f'{year}-12-31').map(maskL8sr).filterBounds(tile).median()
 
             # Set crs and crsTransform to the native ones and use bilinear interpolation when exported
             ndvi = addNDVI(sr).select('NDVI').reproject(**{'crs': f'EPSG:{epsg}', 'crsTransform': ct_0}).resample('bilinear')
