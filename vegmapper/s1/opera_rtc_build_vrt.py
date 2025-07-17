@@ -75,7 +75,7 @@ def get_epsg(file_path):
         return None
         
 
-def process_row(row, polarizations, rtc_dir, out_vrt_dir, target_crs, created_files):
+def process_row(row, polarizations, rtc_dir, out_vrt_dir, target_crs, created_files, site, start_date, end_date):
     if row['mask'] == 0:
         return
 
@@ -86,11 +86,11 @@ def process_row(row, polarizations, rtc_dir, out_vrt_dir, target_crs, created_fi
     target_epsg = CRS.from_string(target_crs).to_epsg()
 
     for pol in polarizations:
-        files_2_merge = [f"{rtc_dir}/{name}_tmean_{pol}.tif" for name in overlapping_names]
+        files_2_merge = [f"{rtc_dir}/{name}_tmean_{start_date}_{end_date}_{pol}.tif" for name in overlapping_names]
         files_2_merge = [file for file in files_2_merge if os.path.exists(file)]
         
-        output_tif = f'{out_vrt_dir}/tile_h{str(position_h)}_v{str(position_v)}_{pol}.tif'
-        output_vrt_mosaic = f'{out_vrt_dir}/mosaic_h{str(position_h)}_v{str(position_v)}_{pol}.vrt'
+        output_tif = f'{out_vrt_dir}/s1_tile_{site}_{start_date}_{end_date}_h{str(position_h)}_v{str(position_v)}_{pol}_pre.tif'
+        output_vrt_mosaic = f'{out_vrt_dir}/s1_mosaic_{site}_{start_date}_{end_date}_h{str(position_h)}_v{str(position_v)}_{pol}.vrt'
 
         reprojected_files = []
         for file in files_2_merge:
@@ -140,7 +140,20 @@ def process_row(row, polarizations, rtc_dir, out_vrt_dir, target_crs, created_fi
         ]
         subprocess.run(warp_command, check=True)
 
-def build_opera_vrt(burst2tile_gdf, rtc_dir):
+        # Convert to Cloud Optimized GeoTIFF
+        cog_command = [
+            'gdal_translate',
+            '-of', 'COG',
+            '-co', 'COMPRESS=LZW',
+            '-co', 'BIGTIFF=IF_SAFER',
+            '-co', 'OVERVIEW_RESAMPLING=NEAREST',
+            output_tif,
+            output_tif.replace('_pre.tif', '.tif'),  # Modify filename for COG output
+        ]
+        
+        subprocess.run(cog_command, check=True)
+
+def build_opera_vrt(burst2tile_gdf, rtc_dir, site, start_date, end_date):
     # Output directory
     out_vrt_dir = f'{rtc_dir}/tile_vrts'
     os.makedirs(out_vrt_dir, exist_ok=True)
@@ -154,7 +167,7 @@ def build_opera_vrt(burst2tile_gdf, rtc_dir):
     # Process rows in parallel
     with ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(process_row, row, polarizations, rtc_dir, out_vrt_dir, target_crs, created_files)
+            executor.submit(process_row, row, polarizations, rtc_dir, out_vrt_dir, target_crs, created_files, site, start_date, end_date)
             for _, row in burst2tile_gdf.iterrows()
         ]
         # Wait for all tasks to complete
