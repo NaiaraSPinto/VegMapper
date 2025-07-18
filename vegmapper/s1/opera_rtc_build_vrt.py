@@ -175,7 +175,7 @@ def build_opera_vrt(burst2tile_gdf, rtc_dir, site, start_date, end_date):
             future.result()
 
 
-def check_tiles_exist(gdf, path):
+def check_tiles_exist(gdf, path, site, start_date, end_date):
     """
     Check if VV and VH tile files exist for each row in the GeoDataFrame.
 
@@ -193,26 +193,29 @@ def check_tiles_exist(gdf, path):
         h, v, mask = row['h'], row['v'], row['mask']
         
         # Tile names for VV and VH
-        vv_tile_name = f"tile_h{h}_v{v}_VV.tif"
-        vh_tile_name = f"tile_h{h}_v{v}_VH.tif"
+        vv_tile_name = f"s1_tile_{site}_{start_date}_{end_date}_h{h}_v{v}_VV.tif"
+        vh_tile_name = f"s1_tile_{site}_{start_date}_{end_date}_h{h}_v{v}_VH.tif"
+        rvi_tile_name = f"s1_tile_{site}_{start_date}_{end_date}_h{h}_v{v}_RVI.tif"
         
         vv_file_path = os.path.join(path, vv_tile_name)
         vh_file_path = os.path.join(path, vh_tile_name)
+        rvi_file_path = os.path.join(path, rvi_tile_name)
 
         if mask == 1:
             # Check existence of both VV and VH tiles
             vv_exists = os.path.exists(vv_file_path)
             vh_exists = os.path.exists(vh_file_path)
+            rvi_exists = os.path.exists(rvi_file_path)
             
             # Store results for both tile types
-            results[(h, v)] = {'VV': vv_exists, 'VH': vh_exists}
+            results[(h, v)] = {'VV': vv_exists, 'VH': vh_exists, 'RVI': rvi_exists}
 
             # Update flag if any tile is missing
-            if not (vv_exists and vh_exists):
+            if not (vv_exists and vh_exists and rvi_exists):
                 all_exist = False
         else:
             # Indicate that no tiles are expected
-            results[(h, v)] = {'VV': None, 'VH': None}
+            results[(h, v)] = {'VV': None, 'VH': None, 'RVI': None}
 
     # Print message if all required tiles exist
     if all_exist:
@@ -225,7 +228,7 @@ def check_tiles_exist(gdf, path):
     return tile_confirmation
 
 
-def create_vrt_mosaic(path):
+def ccreate_vrt_mosaic(path, site, start_date, end_date):
     """
     Create a VRT mosaic of all tiles in the specified directory.
 
@@ -243,7 +246,7 @@ def create_vrt_mosaic(path):
         return
     
     # Build VRT mosaic
-    output_vv_vrt = f'{path}/tile_mosaic_VV.vrt' 
+    output_vv_vrt = f'{path}/s1_tile_mosaic_{site}_{start_date}_{end_date}_VV.vrt' 
     vrt_options = gdal.BuildVRTOptions(resampleAlg="nearest")  # Use nearest-neighbor resampling
     gdal.BuildVRT(output_vv_vrt, vv_tile_files, options=vrt_options)
     print(f"VRT mosaic created successfully at: {output_vv_vrt}")
@@ -256,7 +259,20 @@ def create_vrt_mosaic(path):
         return
     
     # Build VRT mosaic
-    output_vh_vrt = f'{path}/tile_mosaic_VH.vrt' 
+    output_vh_vrt = f'{path}/s1_tile_mosaic_{site}_{start_date}_{end_date}_VH.vrt' 
     vrt_options = gdal.BuildVRTOptions(resampleAlg="nearest")  # Use nearest-neighbor resampling
     gdal.BuildVRT(output_vh_vrt, vh_tile_files, options=vrt_options)
     print(f"VRT mosaic created successfully at: {output_vh_vrt}")
+
+    # Collect all .tif files ending in *RVI.tif
+    rvi_tile_files = [os.path.join(path, f) for f in os.listdir(path) if f.endswith("RVI.tif")]
+
+    if not rvi_tile_files:
+        print("No tiles found ending in *RVI.tif. Mosaic not created.")
+        return
+    
+    # Build VRT mosaic
+    output_rvi_vrt = f'{path}/s1_tile_mosaic_{site}_{start_date}_{end_date}_RVI.vrt' 
+    vrt_options = gdal.BuildVRTOptions(resampleAlg="nearest")  # Use nearest-neighbor resampling
+    gdal.BuildVRT(output_rvi_vrt, rvi_tile_files, options=vrt_options)
+    print(f"VRT mosaic created successfully at: {output_rvi_vrt}")
