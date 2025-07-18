@@ -204,7 +204,7 @@ def run_rtc_temp_mean(burst_id_list, granule_gdf, creds, event, out_dir, start_d
                 # calculate temp mean
                 burst_tmean, epsg_code = xarray_tmean(burst_ds, pol)
                 # export tiff
-                out_tif = f"{out_dir}/{burst}_tmean_{pol}.tif"
+                out_tif = f"{out_dir}/{burst}_tmean_{start_date}_{end_date}_{pol}.tif"
                 tmean2tiff(burst_tmean, out_tif, epsg_code)
         finally:
             # Ensure dataset is closed even in case of error
