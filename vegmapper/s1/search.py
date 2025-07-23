@@ -85,6 +85,19 @@ def skim_granules(aoifile, gdf_granules, gdf_frames):
     return gdf_granules, gdf_frames
 
 
+def skim_opera_granules(aoifile, gdf_granules):
+    gdf_aoi = gpd.read_file(aoifile).dissolve()
+    gdf_granules = gdf_granules.set_crs("EPSG:4326")
+    # Convert gdf_granules to match the CRS of gdf_aoi
+    gdf_granules = gdf_granules.to_crs(gdf_aoi.crs)
+    # Create a single polygon from the AOI
+    aoi_polygon = gdf_aoi.unary_union
+    # Filter granules that intersect with the AOI polygon
+    granules_in_aoi = gdf_granules.loc[gdf_granules.geometry.intersects(aoi_polygon, align=False)]
+
+    return granules_in_aoi
+
+
 def search_granules(sitename,
                     aoifile,
                     start_date,
@@ -123,26 +136,35 @@ def search_granules(sitename,
     # Some tweaks for saving gdf_granules in a GeoJSON file
     gdf_granules['browse'] = gdf_granules['browse'].apply(lambda x: ' '.join(x))
     gdf_granules['pathNumber'] = gdf_granules['pathNumber'].astype(int)
-    gdf_granules['frameNumber'] = gdf_granules['frameNumber'].astype(int)
-    gdf_granules = gdf_granules.sort_values(by=['pathNumber', 'frameNumber', 'startTime'])
 
-    # Group granules by frames
-    gdf_frames = group_granules(gdf_granules)
+    if 'dataset' in search_opts and search_opts['dataset'] == 'OPERA-S1': # check here if the data search is for opera-rtc
+        gdf_granules = gdf_granules.sort_values(by=['pathNumber', 'groupID', 'startTime']) # Testing
+        if skim:
+            gdf_granules = skim_opera_granules(aoifile, gdf_granules)
 
-    # Skim the unnecessary frames
-    if skim:
-        gdf_granules, gdf_frames = skim_granules(aoifile, gdf_granules, gdf_frames)
-
-    # Save search results to geojsons
-    out_dir = PathURL(aoifile).parent
-    geojson_granules = f"{out_dir}/{sitename}_s1_granules_{dt_start.strftime('%Y%m%d')}-{dt_end.strftime('%Y%m%d')}.geojson"
-    geojson_frames = geojson_granules.replace('s1_granules', 's1_frames')
-    with warnings.catch_warnings():
-        # Ignore the FutureWarning, which will be fixed in the next release of geopandas
-        warnings.simplefilter('ignore')
-        gdf_granules.to_file(geojson_granules, driver='GeoJSON')
-        gdf_frames.to_file(geojson_frames, driver='GeoJSON')
-    print(f'\nMetadata of S1 granules saved to: {geojson_granules}')
-    print(f'Metadata of S1 frames saved to: {geojson_frames}')
-
-    return gdf_granules, gdf_frames
+        return gdf_granules
+        
+    else:
+        # Some tweaks for saving gdf_granules in a GeoJSON file
+        gdf_granules['frameNumber'] = gdf_granules['frameNumber'].astype(int)
+        gdf_granules = gdf_granules.sort_values(by=['pathNumber', 'frameNumber', 'startTime'])
+        # Group granules by frames
+        gdf_frames = group_granules(gdf_granules)
+        # Skim the unnecessary frames
+        if skim:
+            gdf_granules, gdf_frames = skim_granules(aoifile, gdf_granules, gdf_frames)
+            
+        # Save search results to geojsons
+        out_dir = PathURL(aoifile).parent
+        geojson_granules = f"{out_dir}/{sitename}_s1_granules_{dt_start.strftime('%Y%m%d')}-{dt_end.strftime('%Y%m%d')}.geojson"
+        geojson_frames = geojson_granules.replace('s1_granules', 's1_frames')
+        gdf_granules.drop(columns=['s3Urls'], inplace=True)
+        with warnings.catch_warnings():
+            # Ignore the FutureWarning, which will be fixed in the next release of geopandas
+            warnings.simplefilter('ignore')
+            gdf_granules.to_file(geojson_granules, driver='GeoJSON')
+            gdf_frames.to_file(geojson_frames, driver='GeoJSON')
+        print(f'\nMetadata of S1 granules saved to: {geojson_granules}')
+        print(f'Metadata of S1 frames saved to: {geojson_frames}')
+    
+        return gdf_granules, gdf_frames
