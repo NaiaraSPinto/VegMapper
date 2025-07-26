@@ -31,11 +31,7 @@ dependencies:
   - xarray
   - rioxarray
 #calval modules
-  - ee
   - geemap
-  - functools
-  - pdb
-  - pylab
   - earthengine-api
 #classification modules
 #  - pip:
