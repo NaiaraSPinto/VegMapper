@@ -228,7 +228,7 @@ def check_tiles_exist(gdf, path, site, start_date, end_date):
     return tile_confirmation
 
 
-def ccreate_vrt_mosaic(path, site, start_date, end_date):
+def create_vrt_mosaic(path, site, start_date, end_date):
     """
     Create a VRT mosaic of all tiles in the specified directory.
 
