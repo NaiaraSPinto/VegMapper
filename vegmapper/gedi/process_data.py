@@ -3,6 +3,7 @@ import h5py
 import numpy as np
 import pandas as pd
 import warnings
+from datetime import datetime,timedelta
 
 from .data_download import download_from_lpdaac, delete_local_files, divide_download_file
 
@@ -58,6 +59,8 @@ def rangeCalculator(elevList, sd, mean):
 
 def extractBeamData(highBeam, gediL2A, rh_cols):
     gedi_beam_data = {}
+    # Start date as January 1, 2018 (manually set the start date/the time gedi staretd collecting data)
+    start_date = datetime(2018, 1, 1)
     try:
         gedi_beam_data["lats"] = gediL2A[f'{highBeam}/lat_lowestmode'][()]
         gedi_beam_data["long"] = gediL2A[f'{highBeam}/lon_lowestmode'][()]
@@ -69,6 +72,7 @@ def extractBeamData(highBeam, gediL2A, rh_cols):
         gedi_beam_data["elevLow"] = gediL2A[f'{highBeam}/elev_lowestmode'][()]
 
         gedi_beam_data["delta_time"] = gediL2A[f'{highBeam}/delta_time'][()]
+        gedi_beam_data['date'] = start_date + pd.to_timedelta(gedi_beam_data['delta_time'], unit='s')
         gedi_beam_data["energy_total"] = gediL2A[f'{highBeam}/energy_total'][()]
 
         gedi_beam_data["rx_gbias"] = gediL2A[f'{highBeam}/rx_1gaussfit/rx_gbias'][()]

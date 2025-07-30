@@ -4,7 +4,7 @@ Land cover classification using remote sensing observations.
 
 ## Prerequisites
 
-If you own a cloud environment, follow steps 1-5 below. If you are using OpenSARlab, go straight to step 4.
+If you own a cloud environment, follow steps 1-5 below. If you are using OpenScienceLab, go straight to step 4.
 
 The VegMapper software is intended to be used on a cloud-computing platform (e.g., [AWS EC2](https://aws.amazon.com/ec2/)) as the volume of remote sensing data is very large normally. However, VegMapper can still be used on a local machine but only Linux and macOS platforms have been tested.
 
