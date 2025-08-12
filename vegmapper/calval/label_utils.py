@@ -202,17 +202,26 @@ def recode(df, recode_dict, label_name, new_col_names):
     
     return df
 
-def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label"):
+def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="labeler"):
     """
     user 1's label will be like "label_1"; 
     user 2 is "label_2" etc...
     """
-    label_name = "labeler"
-    base = pd_list[0]
+    # base = pd_list[0]
+
+    # inelegant, but provide all samples from list of samples, to preserve 
+    # multi-project 
+    base = (
+        pd.concat([p[["Point_ID", "Clust", "Lat", "Lon"]] for p in pd_list])
+        .drop_duplicates()
+        .sort_values(by="Point_ID")
+        .reset_index(drop=True)
+    )
     
     # user 2's suffix is 2 (by setting enumerate idx start=2) 
     if len(pd_list) > 1:
-        for idx, i in enumerate(pd_list[1:], start=2):
+        # for idx, i in enumerate(pd_list[1:], start=2):
+        for idx, i in enumerate(pd_list, start=1):
             # Extract the last part of the file path without the ".csv" 
             # extension
             file_name = f"ceo-survey-user{idx}"
