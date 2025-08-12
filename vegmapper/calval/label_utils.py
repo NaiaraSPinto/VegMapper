@@ -217,7 +217,7 @@ def combine_labelers(pd_list, by=["Point_ID","Clust"], label_name="label"):
             # extension
             file_name = f"ceo-survey-user{idx}"
             # file_name = os.path.splitext(os.path.basename(fs[idx - 1]))[0]
-            base = pd.merge(base, i[[*by, label_name]], how='left', on=by,\
+            base = pd.merge(base, i[[*by, label_name]], how='outer', on=by,\
                             suffixes=(None, file_name))
 
     # Renaming the first user column name
