@@ -168,3 +168,4 @@ stacks/ucayali/*
 calval/detritus/*
 
 histogram_creation/*.gpkg
+histogram_creation/PRODES_files/*.tif
