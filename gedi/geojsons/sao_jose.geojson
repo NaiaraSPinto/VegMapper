@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "sao_jose",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "Name": "jsc", "description": null, "timestamp": null, "begin": null, "end": null }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -46.131967717241707, -23.21253870892906 ], [ -45.95794704888764, -23.366017954223651 ], [ -45.864965206457633, -23.290432384276158 ], [ -46.053099887134131, -23.15280192652418 ], [ -46.131967717241707, -23.21253870892906 ] ] ] } }
+]
+}

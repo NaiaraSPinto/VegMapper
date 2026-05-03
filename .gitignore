@@ -1,3 +1,6 @@
+# CSV files folder
+csv_files/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -166,3 +169,6 @@ stacks/ucayali/*
 *.Rproj*
 .DS_store
 calval/detritus/*
+
+histogram_creation/*.gpkg
+histogram_creation/PRODES_files/*.tif
