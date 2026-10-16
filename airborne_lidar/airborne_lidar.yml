@@ -1,0 +1,15 @@
+name: lidar
+channels:
+  - conda-forge
+dependencies:
+  - gdal
+  - geopandas
+  - laspy
+  - lazrs-python
+  - pdal
+  - pyproj
+  - python-pdal
+  - python=3.12
+  - shapely
+  - ipykernel
+prefix: /home/jovyan/.local/envs/lidar
